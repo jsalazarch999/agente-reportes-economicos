@@ -1,141 +1,112 @@
 import streamlit as st
 import pandas as pd
 
-
+# Configuración inicial
 st.set_page_config(page_title="Agente de Reportes Económicos", layout="wide")
 
-st.title("Agente con herramientas para generación de reportes económicos")
-st.write("Primera versión: carga de Excel, selección de datos y generación de reporte básico.")
+st.title("📊 Agente de Reportes Económicos")
+st.write("Sube un archivo Excel y genera un reporte automático.")
 
+# Función de reporte
+def generar_reporte(sector, periodo, fila):
+    texto = f"En el periodo {periodo}, el sector {sector}"
 
-def generar_reporte_basico(sector: str, periodo: str, fila: pd.Series) -> str:
-    """
-    Genera un reporte simple a partir de una fila seleccionada.
-    Ajusta los nombres de columnas según tu Excel real.
-    """
-    partes = [f"En el periodo {periodo}, el sector {sector}"]
+    if "variacion_interanual" in fila and pd.notna(fila["variacion_interanual"]):
+        texto += f" registró una variación interanual de {fila['variacion_interanual']}%"
 
-    if "variacion_interanual" in fila.index and pd.notna(fila["variacion_interanual"]):
-        partes.append(f"registró una variación interanual de {fila['variacion_interanual']}%")
+    if "variacion_acumulada" in fila and pd.notna(fila["variacion_acumulada"]):
+        texto += f" y una variación acumulada de {fila['variacion_acumulada']}%"
 
-    if "variacion_acumulada" in fila.index and pd.notna(fila["variacion_acumulada"]):
-        partes.append(f"y una variación acumulada de {fila['variacion_acumulada']}%")
+    if "indice" in fila and pd.notna(fila["indice"]):
+        texto += f". Además, el índice alcanzó un valor de {fila['indice']}"
 
-    if "indice" in fila.index and pd.notna(fila["indice"]):
-        partes.append(f". Asimismo, el índice reportado fue {fila['indice']}")
-
-    texto = " ".join(partes).replace(" .", ".")
-    if not texto.endswith("."):
-        texto += "."
-
+    texto += "."
     return texto
 
 
-uploaded_file = st.file_uploader("Sube un archivo Excel", type=["xlsx"])
+# Subida de archivo
+archivo = st.file_uploader("📂 Sube tu archivo Excel", type=["xlsx"])
 
-if uploaded_file is not None:
+if archivo is not None:
     try:
-        xls = pd.ExcelFile(uploaded_file)
-        hojas = xls.sheet_names
+        df = pd.read_excel(archivo)
 
-        st.success("Archivo cargado correctamente.")
-        hoja_seleccionada = st.selectbox("Selecciona una hoja", hojas)
+        st.subheader("🔍 Vista previa de los datos")
+        st.dataframe(df)
 
-        df = pd.read_excel(uploaded_file, sheet_name=hoja_seleccionada)
+        columnas = df.columns.tolist()
 
-        st.subheader("Vista previa de los datos")
-        st.dataframe(df.head(10), use_container_width=True)
+        st.subheader("⚙ Configuración")
 
-        st.subheader("Columnas detectadas")
-        st.write(list(df.columns))
-
-        # Selección flexible de columnas clave
-        st.subheader("Configuración de columnas")
-
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
 
         with col1:
-            columna_sector = st.selectbox("Columna de sector", df.columns)
+            col_sector = st.selectbox("Columna de sector", columnas)
 
         with col2:
-            columna_periodo = st.selectbox("Columna de periodo", df.columns)
+            col_periodo = st.selectbox("Columna de periodo", columnas)
+
+        st.subheader("📊 Mapeo de indicadores (opcional)")
+
+        col3, col4, col5 = st.columns(3)
 
         with col3:
-            columnas_numericas = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
-            st.write("Columnas numéricas detectadas:", columnas_numericas)
-
-        # Renombrado interno opcional
-        st.subheader("Mapeo opcional de indicadores")
-
-        col4, col5, col6 = st.columns(3)
+            col_inter = st.selectbox("Variación interanual", ["(ninguna)"] + columnas)
 
         with col4:
-            col_var_inter = st.selectbox(
-                "Variación interanual",
-                ["(ninguna)"] + list(df.columns),
-                index=0
-            )
+            col_acum = st.selectbox("Variación acumulada", ["(ninguna)"] + columnas)
 
         with col5:
-            col_var_acum = st.selectbox(
-                "Variación acumulada",
-                ["(ninguna)"] + list(df.columns),
-                index=0
-            )
+            col_indice = st.selectbox("Índice", ["(ninguna)"] + columnas)
 
-        with col6:
-            col_indice = st.selectbox(
-                "Índice",
-                ["(ninguna)"] + list(df.columns),
-                index=0
-            )
-
-        df_trabajo = df.copy()
-        df_trabajo = df_trabajo.rename(columns={
-            columna_sector: "sector",
-            columna_periodo: "periodo"
+        # Renombrar columnas
+        df2 = df.copy()
+        df2 = df2.rename(columns={
+            col_sector: "sector",
+            col_periodo: "periodo"
         })
 
-        if col_var_inter != "(ninguna)":
-            df_trabajo = df_trabajo.rename(columns={col_var_inter: "variacion_interanual"})
+        if col_inter != "(ninguna)":
+            df2 = df2.rename(columns={col_inter: "variacion_interanual"})
 
-        if col_var_acum != "(ninguna)":
-            df_trabajo = df_trabajo.rename(columns={col_var_acum: "variacion_acumulada"})
+        if col_acum != "(ninguna)":
+            df2 = df2.rename(columns={col_acum: "variacion_acumulada"})
 
         if col_indice != "(ninguna)":
-            df_trabajo = df_trabajo.rename(columns={col_indice: "indice"})
+            df2 = df2.rename(columns={col_indice: "indice"})
 
-        # Filtros
-        st.subheader("Selección de reporte")
+        # Selección
+        st.subheader("🎯 Selección")
 
-        sectores = sorted(df_trabajo["sector"].dropna().astype(str).unique().tolist())
-        periodos = sorted(df_trabajo["periodo"].dropna().astype(str).unique().tolist())
+        sectores = df2["sector"].dropna().astype(str).unique()
+        periodos = df2["periodo"].dropna().astype(str).unique()
 
-        col7, col8 = st.columns(2)
+        col6, col7 = st.columns(2)
+
+        with col6:
+            sector_sel = st.selectbox("Selecciona sector", sorted(sectores))
 
         with col7:
-            sector_sel = st.selectbox("Selecciona sector", sectores)
+            periodo_sel = st.selectbox("Selecciona periodo", sorted(periodos))
 
-        with col8:
-            periodo_sel = st.selectbox("Selecciona periodo", periodos)
-
-        df_filtrado = df_trabajo[
-            (df_trabajo["sector"].astype(str) == sector_sel) &
-            (df_trabajo["periodo"].astype(str) == periodo_sel)
+        df_filtrado = df2[
+            (df2["sector"].astype(str) == sector_sel) &
+            (df2["periodo"].astype(str) == periodo_sel)
         ]
 
-        st.subheader("Registro filtrado")
-        st.dataframe(df_filtrado, use_container_width=True)
+        st.subheader("📄 Datos filtrados")
+        st.dataframe(df_filtrado)
 
-        if st.button("Generar reporte básico"):
+        # Generar reporte
+        if st.button("📝 Generar reporte"):
             if df_filtrado.empty:
-                st.error("No se encontraron datos para esa combinación de sector y periodo.")
+                st.error("No hay datos para esa selección.")
             else:
                 fila = df_filtrado.iloc[0]
-                reporte = generar_reporte_basico(sector_sel, periodo_sel, fila)
+                reporte = generar_reporte(sector_sel, periodo_sel, fila)
 
-                st.subheader("Reporte generado")
-                st.text_area("Salida", reporte, height=180)
+                st.subheader("📢 Reporte generado")
+                st.success(reporte)
 
     except Exception as e:
-        st.error(f"Ocurrió un error al procesar el archivo: {e}")
+        st.error(f"Error al procesar el archivo: {e}")
