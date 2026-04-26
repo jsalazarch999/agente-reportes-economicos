@@ -1,5 +1,22 @@
+# Entorno virtual
 venv/
+
+# Python
 __pycache__/
 *.pyc
-.streamlit/
+
+# Archivos de entorno (por si usas API keys)
 .env
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Streamlit (opcional)
+.streamlit/
+
+# Jupyter (por si usas luego)
+.ipynb_checkpoints/
+
+# Logs
+*.log
