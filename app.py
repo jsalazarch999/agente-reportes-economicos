@@ -1,4 +1,6 @@
 import streamlit as st
+from rag.context_enricher import enriquecer_contexto_con_web
+from rag.explain_subsectors import generar_explicacion_causal
 
 from agent.orchestrator import procesar_excel, generar_reporte_llm
 from tests.test_quality import evaluar_calidad
@@ -52,6 +54,11 @@ modelo = st.sidebar.selectbox(
 mostrar_debug = st.sidebar.checkbox(
     "Mostrar contexto y datos",
     value=True
+)
+
+usar_web_rag = st.sidebar.checkbox(
+    "Enriquecer con fuentes web",
+    value=False
 )
 
 # =========================
@@ -152,11 +159,18 @@ if archivo:
             with st.spinner("Generando reporte..."):
 
                 try:
+                    contexto_final = datos_periodo["contexto"]
+
+                    if usar_web_rag:
+                        contexto_final = enriquecer_contexto_con_web(
+                            contexto_final,
+                            max_fuentes=3
+                        )
+
                     texto_llm = generar_reporte_llm(
-                        contexto=datos_periodo["contexto"],
+                        contexto=contexto_final,
                         modelo=modelo
                     )
-
                     # =========================
                     # BENCHMARK
                     # =========================
@@ -186,6 +200,24 @@ if archivo:
                     # =========================
 
                     st.text_area("Reporte generado", texto_llm, height=500)
+
+                    if usar_web_rag:
+                        st.subheader("Análisis causal con fuentes web")
+
+                        explicacion_causal = generar_explicacion_causal(contexto_final)
+
+                        st.text_area(
+                            "Explicación por subsector",
+                            explicacion_causal,
+                            height=500
+                        )
+
+                        with st.expander("Fuentes web consultadas"):
+                            contexto_web = contexto_final.get("contexto_web", {})
+                            st.write("Consulta:", contexto_web.get("query", ""))
+
+                            for fuente in contexto_web.get("fuentes", []):
+                                st.markdown(f"- [{fuente.get('titulo')}]({fuente.get('url')})")
 
                     st.subheader("Evaluación de calidad")
 
