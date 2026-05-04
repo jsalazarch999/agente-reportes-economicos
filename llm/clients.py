@@ -1,11 +1,10 @@
 from groq import Groq
+import google.generativeai as genai
 
 import os
 from dotenv import load_dotenv
-
 from huggingface_hub import InferenceClient
 
-# Opcional (solo si usas OpenAI)
 try:
     from openai import OpenAI
 except:
@@ -59,6 +58,24 @@ def get_client(modelo="qwen"):
             "tipo": "openai",
             "client": client,
             "model": "gpt-4.1-mini"
+        }
+    
+    # 🔹 GEMINI
+    elif modelo == "gemini":
+
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            raise ValueError("Falta GEMINI_API_KEY en .env")
+
+        genai.configure(api_key=api_key)
+
+        client = genai.GenerativeModel("gemini-2.5-flash")
+
+        return {
+            "tipo": "gemini",
+            "client": client,
+            "model": "gemini-2.5-flash"
         }
     
 

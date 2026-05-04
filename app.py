@@ -12,6 +12,8 @@ st.set_page_config(
 
 st.title("Agente de Reportes Económicos")
 
+MODELOS_DISPONIBLES = ["qwen", "llama3", "openai", "gemini"]
+
 # =========================
 # CONFIGURACIÓN DE SECTORES
 # =========================
@@ -48,7 +50,7 @@ sector = st.sidebar.selectbox(
 
 modelo = st.sidebar.selectbox(
     "Modelo LLM",
-    ["qwen", "llama3", "openai"]
+    MODELOS_DISPONIBLES
 )
 
 mostrar_debug = st.sidebar.checkbox(

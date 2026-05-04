@@ -10,6 +10,7 @@ def generar_texto(contexto, modelo="qwen"):
     - qwen
     - llama3
     - openai
+    - gemini
     """
 
     prompt = construir_prompt(contexto)
@@ -71,6 +72,19 @@ def generar_texto(contexto, modelo="qwen"):
         )
 
         return response.choices[0].message.content
+
+    # NUEVO BLOQUE GEMINI
+    elif tipo == "gemini":
+
+        prompt_final = f"""
+        Eres un economista del INEI experto en redacción técnica.
+
+        {prompt}
+        """
+
+        response = client.generate_content(prompt_final)
+
+        return response.text
 
     else:
         raise ValueError(f"Tipo de modelo no soportado: {tipo}")

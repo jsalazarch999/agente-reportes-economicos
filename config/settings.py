@@ -7,8 +7,8 @@ load_dotenv()
 # MODELO ACTIVO
 # =========================
 
-ACTIVE_MODEL = "qwen"  
-# opciones: qwen | llama3 | openai
+ACTIVE_MODEL = "gemini"
+# opciones: qwen | llama3 | openai | gemini
 
 
 # =========================
@@ -20,14 +20,21 @@ MODELS = {
         "provider": "huggingface",
         "model_name": "Qwen/Qwen2.5-7B-Instruct",
     },
+
     "llama3": {
         "provider": "huggingface",
         "model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
     },
+
     "openai": {
         "provider": "openai",
         "model_name": "gpt-4.1-mini",
     },
+
+    "gemini": {
+        "provider": "google",
+        "model_name": "gemini-1.5-flash",
+    }
 }
 
 
@@ -37,6 +44,7 @@ MODELS = {
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 # =========================
@@ -63,4 +71,4 @@ REPORTS_DIR = os.path.join(OUTPUT_DIR, "reports")
 # VALIDACIÓN
 # =========================
 
-STRICT_MODE = True  # Si True, lanza error si el LLM falla validación
+STRICT_MODE = True
