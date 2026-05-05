@@ -173,19 +173,6 @@ if archivo:
                         contexto=contexto_final,
                         modelo=modelo
                     )
-                    # =========================
-                    # BENCHMARK
-                    # =========================
-
-                    reportes = [
-                        datos_periodo["texto_base"]["reporte_1"],
-                        datos_periodo["texto_base"]["reporte_2"],
-                    ]
-
-                    if datos_periodo["texto_base"]["reporte_3"]:
-                        reportes.append(datos_periodo["texto_base"]["reporte_3"])
-
-                    benchmark = "\n\n".join(reportes)
 
                     # =========================
                     # EVALUACIÓN
@@ -193,7 +180,7 @@ if archivo:
 
                     resultado_eval = evaluar_calidad(
                         texto_llm=texto_llm,
-                        texto_benchmark=benchmark,
+                        periodo=periodo,
                         contexto=datos_periodo["contexto"]
                     )
 
@@ -225,7 +212,15 @@ if archivo:
 
                     st.write(f"Score total: {resultado_eval['score_total']}")
                     st.write(f"Similitud: {resultado_eval['similitud']}")
+                    st.write(f"Cobertura productos: {resultado_eval['cobertura_productos']}")
                     st.write(f"Válido: {resultado_eval['valido']}")
+                    st.write(f"Benchmark usado: {resultado_eval['benchmark_usado']}")
+
+                    with st.expander("Ver benchmark histórico"):
+                        with open(resultado_eval["benchmark_usado"], "r", encoding="utf-8") as f:
+                            benchmark_texto = f.read()
+
+                        st.write(benchmark_texto)
 
                     if resultado_eval["errores"]:
                         st.error(resultado_eval["errores"])

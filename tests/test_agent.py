@@ -1,42 +1,81 @@
+from pathlib import Path
+
 from agent.orchestrator import procesar_excel, generar_reporte_llm
+from tests.test_quality import evaluar_calidad
 
 
-archivo = "data/sample/variaciones_202602.xlsx"
+BASE_DIR = Path(__file__).resolve().parents[1]
+ARCHIVO = BASE_DIR / "data" / "sample" / "variaciones_202602.xlsx"
 
-# 1. Leer Excel y obtener periodos
-resultado = procesar_excel(archivo)
 
-print("\n===== PERIODOS DISPONIBLES =====")
-print(resultado["periodos"])
+def probar_agente(archivo=ARCHIVO, modelo="qwen"):
+    resultado = procesar_excel(archivo)
 
-# 2. Usar último periodo disponible
-periodo = resultado["periodos"][-1]
+    print("\n===== PERIODOS DISPONIBLES =====")
+    print(resultado["periodos"])
 
-print("\n===== PERIODO SELECCIONADO =====")
-print(periodo)
+    periodo = resultado["periodos"][-1]
 
-# 3. Procesar periodo
-resultado_periodo = procesar_excel(archivo, periodo=periodo)
+    print("\n===== PERIODO SELECCIONADO =====")
+    print(periodo)
 
-print("\n===== TEXTO BASE =====")
-print("\n1. SECTOR MINERÍA E HIDROCARBUROS")
-print(resultado_periodo["texto_base"]["sector"])
+    resultado_periodo = procesar_excel(archivo, periodo=periodo)
 
-print("\n2. MINERÍA METÁLICA")
-print(resultado_periodo["texto_base"]["mineria_metalica"])
+    print("\n===== TEXTO BASE =====")
+    print("\n1. SECTOR MINERÍA E HIDROCARBUROS")
+    print(resultado_periodo["texto_base"]["sector"])
 
-print("\n3. HIDROCARBUROS")
-print(resultado_periodo["texto_base"]["hidrocarburos"])
+    print("\n2. MINERÍA METÁLICA")
+    print(resultado_periodo["texto_base"]["mineria_metalica"])
 
-print("\n===== CONTEXTO =====")
-print(resultado_periodo["contexto"])
+    print("\n3. HIDROCARBUROS")
+    print(resultado_periodo["texto_base"]["hidrocarburos"])
 
-# 4. Generar reporte con LLM
-print("\n===== TEXTO LLM =====")
+    print("\n===== CONTEXTO =====")
+    print(resultado_periodo["contexto"])
 
-texto_llm = generar_reporte_llm(
-    resultado_periodo["contexto"],
-    modelo="qwen"
-)
+    print("\n===== TEXTO LLM =====")
 
-print(texto_llm)
+    texto_llm = generar_reporte_llm(
+        resultado_periodo["contexto"],
+        modelo=modelo
+    )
+
+    print(texto_llm)
+
+    print("\n===== EVALUACIÓN DE CALIDAD =====")
+
+    evaluacion = evaluar_calidad(
+        texto_llm=texto_llm,
+        periodo=periodo,
+        contexto=resultado_periodo["contexto"]
+    )
+
+    print("Modelo:", modelo)
+    print("Periodo:", periodo)
+    print("Score total:", evaluacion["score_total"])
+    print("Similitud:", evaluacion["similitud"])
+    print("Cobertura productos:", evaluacion["cobertura_productos"])
+    print("¿Válido?:", evaluacion["valido"])
+    print("Benchmark usado:", evaluacion["benchmark_usado"])
+
+    if evaluacion["errores"]:
+        print("\nErrores:")
+        for e in evaluacion["errores"]:
+            print("-", e)
+
+    if evaluacion["advertencias"]:
+        print("\nAdvertencias:")
+        for a in evaluacion["advertencias"]:
+            print("-", a)
+
+    return {
+        "periodo": periodo,
+        "texto_llm": texto_llm,
+        "evaluacion": evaluacion,
+        "contexto": resultado_periodo["contexto"]
+    }
+
+
+if __name__ == "__main__":
+    probar_agente()

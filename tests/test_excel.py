@@ -1,68 +1,54 @@
-import os
+from pathlib import Path
 
 from core.loader import cargar_excel, obtener_periodos, filtrar_periodo
 from core.validator import validar_dataframe, validar_periodo
 
 
-# 🔹 Ruta robusta (funciona siempre)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-archivo = os.path.join(BASE_DIR, "data", "sample", "variaciones_202602.xlsx")
+BASE_DIR = Path(__file__).resolve().parents[1]
+ARCHIVO = BASE_DIR / "data" / "sample" / "variaciones_202602.xlsx"
 
 
-# =========================
-# 1. CARGA
-# =========================
-df = cargar_excel(archivo)
+def probar_excel(archivo=ARCHIVO):
+    if not archivo.exists():
+        raise FileNotFoundError(f"No existe el archivo de prueba: {archivo}")
 
-print("\n===== DATAFRAME CARGADO =====")
-print(df.head())
+    df = cargar_excel(archivo)
 
+    print("\n===== DATAFRAME CARGADO =====")
+    print(df.head())
 
-# =========================
-# 2. VALIDACIÓN GENERAL
-# =========================
-validar_dataframe(df)
-print("\n✔ Validación general OK")
+    validar_dataframe(df)
+    print("\n✔ Validación general OK")
 
+    periodos = obtener_periodos(df)
 
-# =========================
-# 3. PERIODOS
-# =========================
-periodos = obtener_periodos(df)
+    if not periodos:
+        raise ValueError("No se encontraron periodos en el Excel.")
 
-print("\n===== PERIODOS DISPONIBLES =====")
-print(periodos)
+    print("\n===== PERIODOS DISPONIBLES =====")
+    print(periodos)
 
+    periodo = periodos[-1]
 
-# =========================
-# 4. SELECCIÓN
-# =========================
-periodo = periodos[-1]
+    print("\n===== PERIODO SELECCIONADO =====")
+    print(periodo)
 
-print("\n===== PERIODO SELECCIONADO =====")
-print(periodo)
+    dfp = filtrar_periodo(df, periodo)
 
+    print("\n===== DATAFRAME DEL PERIODO =====")
+    print(dfp.head())
 
-# =========================
-# 5. FILTRADO
-# =========================
-dfp = filtrar_periodo(df, periodo)
+    validar_periodo(dfp)
+    print("\n✔ Validación del periodo OK")
 
-print("\n===== DATAFRAME DEL PERIODO =====")
-print(dfp.head())
+    print("\n===== RESUMEN =====")
+    print("Archivo:", archivo.name)
+    print("Periodo:", periodo)
+    print("Filas:", len(dfp))
+    print("Columnas:", list(dfp.columns))
 
-
-# =========================
-# 6. VALIDACIÓN DEL PERIODO
-# =========================
-validar_periodo(dfp)
-print("\n✔ Validación del periodo OK")
+    return dfp, periodo
 
 
-# =========================
-# 7. RESUMEN
-# =========================
-print("\n===== RESUMEN =====")
-print("Filas:", len(dfp))
-print("Columnas:", list(dfp.columns))
+if __name__ == "__main__":
+    probar_excel()

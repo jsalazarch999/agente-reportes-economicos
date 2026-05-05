@@ -1,9 +1,34 @@
-from difflib import SequenceMatcher
+from pathlib import Path
+#from difflib import SequenceMatcher
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 from llm.evaluator import evaluar_texto
 
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+BENCHMARK_DIR = BASE_DIR / "data" / "corpus" / "mineria_hidrocarburos" / "processed"
+
+# cargar modelo una sola vez
+modelo_embeddings = SentenceTransformer(
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
+
+def cargar_benchmark(periodo):
+    ruta = BENCHMARK_DIR / f"{periodo}.txt"
+
+    if not ruta.exists():
+        raise FileNotFoundError(f"No existe benchmark para el periodo {periodo}: {ruta}")
+
+    return ruta.read_text(encoding="utf-8")
+
+
 def similitud(a, b):
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+    emb_a = modelo_embeddings.encode([a])
+    emb_b = modelo_embeddings.encode([b])
+
+    score = cosine_similarity(emb_a, emb_b)[0][0]
+
+    return float(score)
 
 
 def cobertura_productos(texto):
@@ -12,12 +37,16 @@ def cobertura_productos(texto):
         "zinc", "plomo", "plata", "molibdeno",
         "petróleo", "líquidos de gas natural", "gas natural"
     ]
+
     texto = texto.lower()
     encontrados = sum(1 for p in productos if p in texto)
+
     return encontrados / len(productos)
 
 
-def evaluar_calidad(texto_llm, texto_benchmark, contexto):
+def evaluar_calidad(texto_llm, periodo, contexto):
+    texto_benchmark = cargar_benchmark(periodo)
+
     eval_reglas = evaluar_texto(texto_llm, contexto)
 
     score_similitud = similitud(texto_llm, texto_benchmark)
@@ -25,17 +54,14 @@ def evaluar_calidad(texto_llm, texto_benchmark, contexto):
 
     score = 0
 
-    # 1. Reglas duras
     if eval_reglas["valido"]:
         score += 40
 
-    # 2. Similitud textual
-    if score_similitud >= 0.30:
+    if score_similitud >= 0.75:
         score += 20
-    elif score_similitud >= 0.15:
+    elif score_similitud >= 0.60:
         score += 10
 
-    # 3. Advertencias
     if len(eval_reglas["advertencias"]) == 0:
         score += 25
     elif len(eval_reglas["advertencias"]) <= 2:
@@ -43,10 +69,11 @@ def evaluar_calidad(texto_llm, texto_benchmark, contexto):
     else:
         score -= 10
 
-    # 4. Cobertura de productos
     score += int(score_cobertura * 15)
 
     return {
+        "periodo": periodo,
+        "benchmark_usado": str(BENCHMARK_DIR / f"{periodo}.txt"),
         "score_total": max(0, min(score, 100)),
         "similitud": round(score_similitud, 3),
         "cobertura_productos": round(score_cobertura, 3),

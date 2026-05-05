@@ -1,6 +1,5 @@
 from llm.generator import generar_texto
-from llm.evaluator import evaluar_texto
-
+from tests.test_quality import evaluar_calidad
 
 # 🔹 Contexto mínimo de prueba (puedes ajustar)
 contexto = {
@@ -48,11 +47,18 @@ for modelo in modelos:
         print("\n--- TEXTO GENERADO ---\n")
         print(texto)
 
-        # 🔹 Evaluación automática
-        evaluacion = evaluar_texto(texto, contexto)
+        evaluacion = evaluar_calidad(
+            texto_llm=texto,
+            periodo=contexto["periodo"],
+            contexto=contexto
+        )
 
-        print("\n--- EVALUACIÓN ---\n")
+        print("\n--- EVALUACIÓN DE CALIDAD ---\n")
+        print("Score total:", evaluacion["score_total"])
+        print("Similitud:", evaluacion["similitud"])
+        print("Cobertura productos:", evaluacion["cobertura_productos"])
         print("¿Válido?:", evaluacion["valido"])
+        print("Benchmark usado:", evaluacion["benchmark_usado"])
 
         if evaluacion["errores"]:
             print("\nErrores:")
