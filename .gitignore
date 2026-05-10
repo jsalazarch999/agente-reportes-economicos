@@ -13,7 +13,7 @@ __pycache__/
 Thumbs.db
 
 # Streamlit (opcional)
-.streamlit/
+.streamlit/secrets.toml
 
 # Jupyter (por si usas luego)
 .ipynb_checkpoints/

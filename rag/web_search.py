@@ -53,23 +53,12 @@ def construir_query_sector(contexto):
     periodo = contexto.get("periodo_texto", "")
     sector = contexto.get("sector", {}).get("nombre", "")
 
-    productos_negativos = []
-
-    hidro_neg = contexto.get("subsector_hidrocarburos", {}).get("productos_negativos", [])
-    mineria_neg = contexto.get("subsector_mineria_metalica", {}).get("productos_negativos", [])
-
-    for p in hidro_neg[:2]:
-        productos_negativos.append(p["nombre"])
-
-    for p in mineria_neg[:2]:
-        productos_negativos.append(p["nombre"])
-
-    productos_texto = " ".join(productos_negativos)
-
     query = (
         f'Perú "{sector}" "{periodo}" '
-        f'{productos_texto} causas producción '
-        f'MINEM BCRP Perupetro Reuters Gestión Rumbo Minero'
+        f'coyuntura producción minería hidrocarburos '
+        f'mantenimiento paralización huelga lluvias emergencia accidente ducto TGP Camisea '
+        f'lote Pluspetrol Repsol Toromocho Minsur San Rafael '
+        f'MINEM Perupetro Gestión Rumbo Minero'
     )
 
     return query
@@ -85,10 +74,11 @@ def buscar_contexto_web(contexto, max_results=10):
     fuentes = buscar_web(
         query=query,
         max_results=max_results,
-        topic="general"
+        topic="news"
     )
 
-    fuentes = filtrar_fuentes_relevantes(fuentes, anio="2026")
+    anio = contexto.get("periodo", "")[:4]
+    fuentes = filtrar_fuentes_relevantes(fuentes, anio=anio)
 
     return {
         "query": query,
@@ -108,7 +98,10 @@ def filtrar_fuentes_relevantes(fuentes, anio="2026"):
         "rumbominero.com",
         "larepublica.pe",
         "expreso.com.pe",
-        "mineriaenergia.com"
+        "mineriaenergia.com",
+        "energiminas.com",
+        "proactivo.com.pe",
+        "andina.pe",
     ]
 
     for f in fuentes:
@@ -122,35 +115,3 @@ def filtrar_fuentes_relevantes(fuentes, anio="2026"):
             filtradas.append(f)
 
     return filtradas
-
-if __name__ == "__main__":
-    contexto_prueba = {
-        "periodo_texto": "febrero de 2026",
-        "sector": {
-            "nombre": "Minería e Hidrocarburos"
-        },
-        "subsector_hidrocarburos": {
-            "variacion_interanual": -9.73,
-            "productos_negativos": [
-                {"nombre": "petróleo crudo"},
-                {"nombre": "líquidos de gas natural"}
-            ]
-        },
-        "subsector_mineria_metalica": {
-            "variacion_interanual": 0.13,
-            "productos_negativos": [
-                {"nombre": "molibdeno"},
-                {"nombre": "plata"}
-            ]
-        }
-    }
-
-    resultado = buscar_contexto_web(contexto_prueba)
-
-    print("QUERY:")
-    print(resultado["query"])
-
-    print("\nFUENTES:")
-    for fuente in resultado["fuentes"]:
-        print("-", fuente["titulo"])
-        print(" ", fuente["url"])

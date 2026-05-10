@@ -1,8 +1,4 @@
 def priorizar_fuentes(fuentes, max_fuentes=3):
-    """
-    Prioriza fuentes según confiabilidad.
-    """
-
     prioridad = {
         "minem": 1,
         "bcrp": 2,
@@ -13,13 +9,13 @@ def priorizar_fuentes(fuentes, max_fuentes=3):
         "mining.com": 7,
         "larepublica": 8,
         "expreso": 9,
+        "mineriaenergia": 10,
     }
 
     fuentes_rankeadas = []
 
     for fuente in fuentes:
         url = fuente.get("url", "").lower()
-
         ranking = 999
 
         for dominio, score in prioridad.items():
@@ -27,15 +23,11 @@ def priorizar_fuentes(fuentes, max_fuentes=3):
                 ranking = score
                 break
 
-        fuente["ranking"] = ranking
-        fuentes_rankeadas.append(fuente)
+        fuente_rankeada = fuente.copy()
+        fuente_rankeada["ranking"] = ranking
+        fuentes_rankeadas.append(fuente_rankeada)
 
-    fuentes_rankeadas = sorted(
-        fuentes_rankeadas,
-        key=lambda x: x["ranking"]
-    )
-
-    return fuentes_rankeadas[:max_fuentes]
+    return sorted(fuentes_rankeadas, key=lambda x: x["ranking"])[:max_fuentes]
 
 def limpiar_contenido(texto):
     if not texto:

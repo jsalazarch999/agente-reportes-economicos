@@ -1,14 +1,41 @@
 import pandas as pd
 
+def obtener_fila(df, clasificacion, nombre):
+    """
+    Busca una fila por clasificación y nombre.
+    Ejemplo:
+    clasificacion = "sector"
+    nombre = "Minería e Hidrocarburos"
+    """
+
+    fila = df[
+        (df["clasificacion"].str.strip().str.lower() == clasificacion.strip().lower()) &
+        (df["nombre"].str.strip().str.lower() == nombre.strip().lower())
+    ]
+
+    if fila.empty:
+        return None
+
+    return fila.iloc[0]
+
 from core.formatter import (
     formatear,
     periodo_a_texto,
     lista_productos,
+    lista_productos_acumulado,
     lista_nombres,
 )
 
-from core.processor import obtener_fila
+def obtener_fila(df, clasificacion, nombre):
+    fila = df[
+        (df["clasificacion"].str.strip().str.lower() == clasificacion.strip().lower()) &
+        (df["nombre"].str.strip().str.lower() == nombre.strip().lower())
+    ]
 
+    if fila.empty:
+        return None
+
+    return fila.iloc[0]
 
 PRODUCTOS_MM = [
     "Cobre", "Hierro", "Oro", "Estaño",
@@ -99,6 +126,31 @@ def construir_contexto(df_periodo, periodo):
     productos_mm = ordenar_productos(productos_mm, ORDEN_MM)
     productos_hidro = ordenar_productos(productos_hidro, ORDEN_HIDRO)
 
+    mm_pos_acum = productos_mm[productos_mm["variacion_acumulada"] > 0].copy()
+    mm_neg_acum = productos_mm[productos_mm["variacion_acumulada"] < 0].copy()
+
+    hidro_pos_acum = productos_hidro[productos_hidro["variacion_acumulada"] > 0].copy()
+    hidro_neg_acum = productos_hidro[productos_hidro["variacion_acumulada"] < 0].copy()
+
+    # Ordenar por incidencia acumulada
+    mm_pos_acum = mm_pos_acum.sort_values("incidencia_acumulada", ascending=False)
+    mm_neg_acum = mm_neg_acum.sort_values("incidencia_acumulada", ascending=True)
+
+    hidro_pos_acum = hidro_pos_acum.sort_values("incidencia_acumulada", ascending=False)
+    hidro_neg_acum = hidro_neg_acum.sort_values("incidencia_acumulada", ascending=True)
+
+    lista_mm_pos_acum = lista_productos_acumulado(mm_pos_acum) if not mm_pos_acum.empty else ""
+    lista_mm_neg_acum = lista_productos_acumulado(mm_neg_acum) if not mm_neg_acum.empty else ""
+
+    lista_hidro_pos_acum = lista_productos_acumulado(hidro_pos_acum) if not hidro_pos_acum.empty else ""
+    lista_hidro_neg_acum = lista_productos_acumulado(hidro_neg_acum) if not hidro_neg_acum.empty else ""
+
+    inc_mm_pos_acum = mm_pos_acum["incidencia_acumulada"].sum() if not mm_pos_acum.empty else 0
+    inc_mm_neg_acum = mm_neg_acum["incidencia_acumulada"].sum() if not mm_neg_acum.empty else 0
+
+    inc_hidro_pos_acum = hidro_pos_acum["incidencia_acumulada"].sum() if not hidro_pos_acum.empty else 0
+    inc_hidro_neg_acum = hidro_neg_acum["incidencia_acumulada"].sum() if not hidro_neg_acum.empty else 0
+
     mm_pos = productos_mm[productos_mm["variacion_interanual"] > 0].copy()
     mm_neg = productos_mm[productos_mm["variacion_interanual"] < 0].copy()
 
@@ -141,61 +193,77 @@ def construir_contexto(df_periodo, periodo):
     var_mm = float(mm["variacion_interanual"])
     var_hidro = float(hidro["variacion_interanual"])
 
+    
+
     # =====================================================
     # TEXTO 1: SECTOR MINERÍA E HIDROCARBUROS
     # =====================================================
 
     if var_hidro < 0:
-        parte_hidro = (
-            f"explicado por el desempeño negativo del subsector hidrocarburos en "
-            f"{formatear(var_hidro)}%, debido a la menor producción de "
-            f"{lista_hidro_neg_nombres}"
-            if lista_hidro_neg_nombres
-            else (
-                f"explicado por el desempeño negativo del subsector "
-                f"hidrocarburos en {formatear(var_hidro)}%"
-            )
+        texto_resumen_hidro = (
+            f"determinado por el comportamiento decreciente del subsector hidrocarburos "
+            f"en {formatear(var_hidro)}%, con reportes a la baja de {lista_hidro_neg_nombres}"
         )
     else:
-        parte_hidro = (
-            f"favorecido por el crecimiento del subsector hidrocarburos en "
-            f"{formatear(var_hidro)}%, asociado a la mayor producción de "
-            f"{lista_hidro_pos}"
-            if lista_hidro_pos
-            else (
-                f"favorecido por el crecimiento del subsector "
-                f"hidrocarburos en {formatear(var_hidro)}%"
-            )
+        texto_resumen_hidro = (
+            f"favorecido por el comportamiento creciente del subsector hidrocarburos "
+            f"en {formatear(var_hidro)}%, explicado por la mayor producción de {lista_nombres(hidro_pos)}"
         )
 
     if var_mm > 0:
-        parte_mm = (
-            f"resultado que fue atenuado por la expansión del subsector de "
-            f"minería metálica en {formatear(var_mm)}%, sustentado en los "
-            f"mayores volúmenes de producción de {lista_nombres(mm_pos)}"
-            if not mm_pos.empty
-            else (
-                f"resultado que fue atenuado por la expansión del subsector "
-                f"de minería metálica en {formatear(var_mm)}%"
-            )
+        texto_resumen_mm = (
+            f"la actividad minera metálica presentó un avance de {formatear(abs(var_mm))}%, "
+            f"explicado fundamentalmente por la mayor producción de {lista_nombres(mm_pos)}"
         )
     else:
-        parte_mm = (
-            f"resultado que fue acentuado por la contracción del subsector de "
-            f"minería metálica en {formatear(abs(var_mm))}%, debido a la "
-            f"menor producción de {lista_nombres(mm_neg)}"
-            if not mm_neg.empty
-            else (
-                f"resultado que fue acentuado por la contracción del subsector "
-                f"de minería metálica en {formatear(abs(var_mm))}%"
-            )
+        texto_resumen_mm = (
+            f"la actividad minera metálica presentó una disminución de {formatear(abs(var_mm))}%, "
+            f"explicada por la menor producción de {lista_nombres(mm_neg)}"
         )
+
+    if var_hidro < 0:
+        texto_detalle_hidro = (
+            f"El subsector hidrocarburos se contrajo en {formatear(abs(var_hidro))}%, "
+            f"como consecuencia del menor volumen registrado de {lista_hidro_neg}."
+        )
+    else:
+        texto_detalle_hidro = (
+            f"El subsector hidrocarburos creció en {formatear(abs(var_hidro))}%, "
+            f"como consecuencia del mayor volumen registrado de {lista_hidro_pos}."
+        )
+
+    if var_mm > 0:
+        texto_detalle_mm = (
+            f"El subsector minero metálico registró incremento de {formatear(var_mm)}%, "
+            f"ante la mayor producción de {lista_mm_pos}"
+        )
+
+        if lista_mm_neg:
+            texto_detalle_mm += (
+                f"; mientras que, la producción de {lista_mm_neg}."
+            )
+        else:
+            texto_detalle_mm += "."
+
+    else:
+        texto_detalle_mm = (
+            f"El subsector minero metálico registró disminución de {formatear(abs(var_mm))}%, "
+            f"ante la menor producción de {lista_mm_neg}"
+        )
+
+        if lista_mm_pos:
+            texto_detalle_mm += (
+                f"; no obstante, la producción de {lista_mm_pos} atenuó parcialmente el resultado."
+            )
+        else:
+            texto_detalle_mm += "."
 
     texto1 = (
         f"El sector minería e hidrocarburos registró en {mes_texto} de "
         f"{anio_texto} un {'crecimiento' if var_sector > 0 else 'decrecimiento'} "
-        f"de {formatear(abs(var_sector))}% respecto al mismo mes del año anterior, "
-        f"{parte_hidro}; {parte_mm}."
+        f"de {formatear(abs(var_sector))}% respecto al mismo mes del año anterior. "
+        f"Este resultado estuvo asociado al comportamiento del subsector Hidrocarburos "
+        f"en {formatear(var_hidro)}% y de la minería metálica en {formatear(var_mm)}%."
     )
 
     # =====================================================
@@ -279,10 +347,10 @@ def construir_contexto(df_periodo, periodo):
     )
 
     orden_nombres = [x[0] for x in orden_subsectores]
+
     # =====================================================
     # CONTEXTO PARA LLM
     # =====================================================
-
     contexto = {
         "periodo": str(periodo),
         "periodo_texto": f"{mes_texto} de {anio_texto}",
@@ -291,92 +359,43 @@ def construir_contexto(df_periodo, periodo):
         "sector": {
             "nombre": "Minería e Hidrocarburos",
             "variacion_interanual": round(var_sector, 2),
+            "variacion_acumulada": round(float(sector_row["variacion_acumulada"]), 2),
         },
         "subsector_mineria_metalica": {
             "variacion_interanual": round(var_mm, 2),
-            "productos_positivos": [
-                {
-                    "nombre": str(row["nombre"]),
-                    "variacion_interanual": round(
-                        float(row["variacion_interanual"]), 2
-                    ),
-                    "incidencia_interanual": round(
-                        float(row["incidencia_interanual"]), 2
-                    ),
-                }
-                for _, row in mm_pos.iterrows()
-            ],
-            "productos_negativos": [
-                {
-                    "nombre": str(row["nombre"]),
-                    "variacion_interanual": round(
-                        float(row["variacion_interanual"]), 2
-                    ),
-                    "incidencia_interanual": round(
-                        float(row["incidencia_interanual"]), 2
-                    ),
-                }
-                for _, row in mm_neg.iterrows()
-            ],
-            "incidencia_positiva": round(float(inc_pos), 2),
-            "incidencia_negativa": round(float(inc_neg), 2),
+            "variacion_acumulada": round(float(mm["variacion_acumulada"]), 2),
+            "incidencia_interanual": round(float(mm["incidencia_interanual"]), 2),
         },
         "subsector_hidrocarburos": {
             "variacion_interanual": round(var_hidro, 2),
-            "incidencia_interanual": round(
-                float(hidro["incidencia_interanual"]), 2
-            ),
-            "productos_negativos": [
-                {
-                    "nombre": str(row["nombre"]),
-                    "variacion_interanual": round(
-                        float(row["variacion_interanual"]), 2
-                    ),
-                    "incidencia_interanual": round(
-                        float(row["incidencia_interanual"]), 2
-                    ),
-                }
-                for _, row in hidro_neg.iterrows()
-            ],
-            "productos_positivos": [
-                {
-                    "nombre": str(row["nombre"]),
-                    "variacion_interanual": round(
-                        float(row["variacion_interanual"]), 2
-                    ),
-                    "incidencia_interanual": round(
-                        float(row["incidencia_interanual"]), 2
-                    ),
-                }
-                for _, row in hidro_pos.iterrows()
-            ],
+            "variacion_acumulada": round(float(hidro["variacion_acumulada"]), 2),
+            "incidencia_interanual": round(float(hidro["incidencia_interanual"]), 2),
         },
     }
 
     # =========================
     # REPORTE 1: EVOLUCIÓN SECTORIAL
     # =========================
+    conector_resumen_mm = "En contraste" if var_hidro * var_mm < 0 else "Asimismo"
 
     reporte_1 = f"""
     EVOLUCIÓN SECTORIAL
 
-    Índice de la Producción Minera y de Hidrocarburos
+Índice de la Producción Minera y de Hidrocarburos
+Año base 2007
 
-    Año base 2007
+- El Índice de la Producción Minera y de Hidrocarburos registró {'aumento' if var_sector > 0 else 'disminución'} de {formatear(abs(var_sector))}% en {mes_texto} {anio_texto}, {texto_resumen_hidro}.
 
-    • El Índice de la Producción Minera y de Hidrocarburos registró {'aumento' if var_sector > 0 else 'disminución'} de {formatear(abs(var_sector))}% en {mes_texto} {anio_texto}, determinado por el comportamiento {'creciente' if var_hidro > 0 else 'decreciente'} del subsector hidrocarburos en {formatear(var_hidro)}%.
+- {conector_resumen_mm}, {texto_resumen_mm}.
 
-    • {'Asimismo' if var_mm > 0 and var_hidro > 0 else 'En contraste'}, la actividad minera metálica presentó {'un avance' if var_mm > 0 else 'una disminución'} de {formatear(abs(var_mm))}%.
+Variación interanual del Índice de la Producción Minera y de Hidrocarburos
 
-    Variación interanual del Índice de la Producción Minera y de Hidrocarburos
+- En {mes_texto} {anio_texto}, la variación de {formatear(var_sector)}% fue producto del comportamiento del subsector hidrocarburos en {formatear(var_hidro)}% con una incidencia de {formatear(float(hidro['incidencia_interanual']))} puntos porcentuales en el índice sectorial; y de la actividad minera metálica en {formatear(var_mm)}% con una incidencia de {formatear(float(mm['incidencia_interanual']))} puntos porcentuales.
 
-    En {mes_texto} {anio_texto}, la variación de {formatear(var_sector)}% fue producto del comportamiento del subsector hidrocarburos en {formatear(var_hidro)}% con una incidencia de {formatear(float(hidro['incidencia_interanual']))} puntos porcentuales en el índice sectorial; y de la actividad minera metálica en {formatear(var_mm)}%.
+- {texto_detalle_hidro}
 
-    El subsector hidrocarburos registró variación de {formatear(var_hidro)}%, como consecuencia del comportamiento de {lista_hidro_neg if not hidro_neg.empty else lista_hidro_pos}.
-
-    El subsector minero metálico registró variación de {formatear(var_mm)}%, ante el comportamiento positivo de {lista_mm_pos}; mientras que, la producción con resultado negativo correspondió a {lista_mm_neg}.
+- {texto_detalle_mm}
     """.strip()
-
 
     # =========================
     # REPORTE 2: PRODUCCIÓN MENSUAL
@@ -385,44 +404,117 @@ def construir_contexto(df_periodo, periodo):
     reporte_2 = f"""
     Producción Sectorial: {mes_texto.capitalize()} {anio_texto}
 
-    Sector Minería e Hidrocarburos
+Sector Minería e Hidrocarburos
 
-    {texto1}
+{texto1}
 
-    {texto2}
+{texto2}
 
-    {texto3}
+{texto3}
     """.strip()
 
 
     # =========================
     # REPORTE 3: ACUMULADO / ANUAL
     # =========================
+    if not mm_pos_acum.empty and not mm_neg_acum.empty:
+        texto_mm_acum = (
+            f"El sector minería e hidrocarburos, en el periodo enero – {mes_texto} de {anio_texto}, "
+            f"registró un {'crecimiento' if float(sector_row['variacion_acumulada']) > 0 else 'decrecimiento'} "
+            f"de {formatear(abs(float(sector_row['variacion_acumulada'])))}%, explicado por el desempeño "
+            f"{'positivo' if float(mm['variacion_acumulada']) > 0 else 'negativo'} de la actividad minera metálica "
+            f"en {formatear(float(mm['variacion_acumulada']))}%, sustentado en los mayores volúmenes de producción de "
+            f"{lista_mm_pos_acum}, con una incidencia positiva conjunta de "
+            f"{formatear(abs(float(inc_mm_pos_acum)))} puntos porcentuales al resultado global del sector; "
+            f"atenuado parcialmente por la variación acumulada negativa en la producción de {lista_mm_neg_acum}, "
+            f"con una incidencia negativa de {formatear(abs(float(inc_mm_neg_acum)))} puntos porcentuales."
+        )
+
+    elif not mm_pos_acum.empty:
+        texto_mm_acum = (
+            f"El sector minería e hidrocarburos, en el periodo enero – {mes_texto} de {anio_texto}, "
+            f"registró un {'crecimiento' if float(sector_row['variacion_acumulada']) > 0 else 'decrecimiento'} "
+            f"de {formatear(abs(float(sector_row['variacion_acumulada'])))}%, explicado por el desempeño positivo "
+            f"de la actividad minera metálica en {formatear(float(mm['variacion_acumulada']))}%, sustentado en los "
+            f"mayores volúmenes de producción de {lista_mm_pos_acum}, con una incidencia positiva conjunta de "
+            f"{formatear(abs(float(inc_mm_pos_acum)))} puntos porcentuales al resultado global del sector."
+        )
+
+    elif not mm_neg_acum.empty:
+        texto_mm_acum = (
+            f"El sector minería e hidrocarburos, en el periodo enero – {mes_texto} de {anio_texto}, "
+            f"registró un {'crecimiento' if float(sector_row['variacion_acumulada']) > 0 else 'decrecimiento'} "
+            f"de {formatear(abs(float(sector_row['variacion_acumulada'])))}%, influenciado por el desempeño negativo "
+            f"de la actividad minera metálica en {formatear(float(mm['variacion_acumulada']))}%, explicado por la "
+            f"menor producción acumulada de {lista_mm_neg_acum}, con una incidencia negativa conjunta de "
+            f"{formatear(abs(float(inc_mm_neg_acum)))} puntos porcentuales."
+        )
+
+    else:
+        texto_mm_acum = (
+            f"El sector minería e hidrocarburos, en el periodo enero – {mes_texto} de {anio_texto}, "
+            f"registró una variación acumulada de {formatear(float(sector_row['variacion_acumulada']))}%."
+        )
+        
+    if not hidro_neg_acum.empty and not hidro_pos_acum.empty:
+        texto_hidro_acum = (
+            f"Por otro lado, el subsector hidrocarburos presentó "
+            f"{'crecimiento' if float(hidro['variacion_acumulada']) > 0 else 'disminución'} "
+            f"de {formatear(abs(float(hidro['variacion_acumulada'])))}% en el periodo de referencia, "
+            f"determinado por el menor volumen de explotación de {lista_hidro_neg_acum}, "
+            f"con una incidencia negativa de {formatear(abs(float(inc_hidro_neg_acum)))} "
+            f"puntos porcentuales a la evolución del sector; en contraste, "
+            f"la producción de {lista_hidro_pos_acum} registró incrementos "
+            f"con una incidencia positiva conjunta de {formatear(abs(float(inc_hidro_pos_acum)))} "
+            f"puntos porcentuales."
+        )
+
+    elif not hidro_neg_acum.empty:
+        texto_hidro_acum = (
+            f"Por otro lado, el subsector hidrocarburos presentó disminución de "
+            f"{formatear(abs(float(hidro['variacion_acumulada'])))}% en el periodo de referencia, "
+            f"determinada por el menor volumen de explotación de {lista_hidro_neg_acum}, "
+            f"con una incidencia negativa de {formatear(abs(float(inc_hidro_neg_acum)))} "
+            f"puntos porcentuales a la evolución del sector."
+        )
+
+    elif not hidro_pos_acum.empty:
+        texto_hidro_acum = (
+            f"Por otro lado, el subsector hidrocarburos presentó crecimiento de "
+            f"{formatear(abs(float(hidro['variacion_acumulada'])))}% en el periodo de referencia, "
+            f"explicado por el mayor volumen de explotación de {lista_hidro_pos_acum}, "
+            f"con una incidencia positiva conjunta de {formatear(abs(float(inc_hidro_pos_acum)))} "
+            f"puntos porcentuales a la evolución del sector."
+        )
+
+    else:
+        texto_hidro_acum = (
+            f"Por otro lado, el subsector hidrocarburos presentó una variación acumulada de "
+            f"{formatear(float(hidro['variacion_acumulada']))}%."
+        )
 
     if tipo_reporte == "mensual_y_acumulado":
         reporte_3 = f"""
     Producción Sectorial: Enero-{mes_texto.capitalize()} {anio_texto}
 
-    Sector Minería e Hidrocarburos
+Sector Minería e Hidrocarburos
 
-    El sector minería e hidrocarburos, en el periodo enero – {mes_texto} de {anio_texto}, registró una variación acumulada de {formatear(float(sector_row['variacion_acumulada']))}%.
+{texto_mm_acum}
 
-    La actividad minera metálica registró una variación acumulada de {formatear(float(mm['variacion_acumulada']))}%.
-
-    Por otro lado, el subsector hidrocarburos presentó una variación acumulada de {formatear(float(hidro['variacion_acumulada']))}%.
+{texto_hidro_acum}
     """.strip()
 
     elif tipo_reporte == "anual_y_mensual":
         reporte_3 = f"""
     Producción Sectorial: Año {anio_texto}
 
-    Sector Minería e Hidrocarburos
+Sector Minería e Hidrocarburos
 
-    En el año {anio_texto}, el sector minería e hidrocarburos presentó una variación acumulada de {formatear(float(sector_row['variacion_acumulada']))}%.
+En el año {anio_texto}, el sector minería e hidrocarburos presentó una variación acumulada de {formatear(float(sector_row['variacion_acumulada']))}%.
 
-    La actividad minera metálica registró una variación acumulada de {formatear(float(mm['variacion_acumulada']))}%.
+La actividad minera metálica registró una variación acumulada de {formatear(float(mm['variacion_acumulada']))}%.
 
-    El subsector hidrocarburos registró una variación acumulada de {formatear(float(hidro['variacion_acumulada']))}%.
+El subsector hidrocarburos registró una variación acumulada de {formatear(float(hidro['variacion_acumulada']))}%.
     """.strip()
 
     else:

@@ -1,111 +1,68 @@
-import json
-
-
-def construir_prompt(contexto):
-    """
-    Prompt profesional tipo INEI.
-    Controla al modelo para evitar alucinaciones.
-    """
-
+def construir_prompt_revision(texto_base):
     return f"""
 Eres un redactor técnico del INEI (Perú).
 
-Tu tarea es redactar un análisis económico EXACTO basado únicamente en los datos proporcionados.
+Tu tarea es mejorar la redacción del siguiente texto base determinístico.
 
-INSTRUCCIONES ESTRICTAS:
-- NO inventes información.
-- NO agregues causas externas (precios, mercado, etc.).
-- NO cambies cifras.
-- NO traduzcas nombres de productos.
-- NO uses "sector industrial".
-- NO uses "subsectora".
-- Usa "subsector Hidrocarburos".
-- Usa coma decimal (ejemplo: 1,25%).
-- Mantén coherencia económica.
+REGLAS OBLIGATORIAS:
+- No agregues causas externas.
+- No uses contexto web.
+- No menciones precios, inversión, mercado internacional ni eventos externos.
+- No cambies cifras.
+- No cambies productos.
+- No cambies incidencias.
+- No elimines secciones.
+- No resumas.
+- Mantén los títulos originales.
+- Devuelve únicamente el texto mejorado.
 
-FORMATO SEGÚN TIPO DE REPORTE:
+TEXTO BASE A MEJORAR:
+{texto_base}
+"""
 
-Siempre inicia con esta estructura:
+def construir_prompt_causal(contexto_local="", contexto_web=""):
+    return f"""
+Eres un analista económico del INEI especializado en coyuntura minera y de hidrocarburos.
 
-EVOLUCIÓN SECTORIAL
-Índice de la Producción Minera y de Hidrocarburos
-Año base 2007
+Tu tarea es redactar SOLO un comentario coyuntural del mes, separado del reporte estadístico.
 
-• Redacta un primer resumen del índice sectorial del periodo.
-• Redacta un segundo párrafo de contraste entre minería metálica e hidrocarburos.
+OBJETIVO:
+Explicar hechos puntuales del mes que pudieron afectar la producción.
 
-Variación interanual del Índice de la Producción Minera y de Hidrocarburos
+PROHIBIDO:
+- No menciones porcentajes.
+- No menciones variaciones por producto.
+- No repitas cifras del Excel.
+- No hagas análisis estadístico.
+- No digas "creció", "cayó", "aumentó" o "disminuyó" por producto si no está ligado a un hecho coyuntural.
+- No menciones rankings de metales.
+- No menciones producción acumulada ni primer trimestre, salvo que el hecho coyuntural sea del mes.
+- No menciones precios, inversión, mercado internacional ni perspectivas.
+- No uses subtítulos con "#".
 
-Redacta 3 párrafos:
-1. Resultado global del sector, incluyendo variación e incidencias de los subsectores.
-2. Detalle del subsector Hidrocarburos.
-3. Detalle del subsector minero metálico.
+PRIORIZA SOLO HECHOS COYUNTURALES:
+- mantenimientos
+- paralizaciones
+- huelgas
+- accidentes
+- lluvias
+- emergencias
+- restricciones operativas
+- interrupciones de transporte
+- conflictos sociales
+- hechos ocurridos en el mes analizado
 
-Si tipo_reporte = "mensual":
+FORMATO:
+Minería metálica
+Redacta 1 párrafo. Si no hay evidencia coyuntural específica, escribe:
+"Las fuentes consultadas no permiten identificar una causa coyuntural específica para la minería metálica en el mes analizado."
 
-Producción Sectorial: MES AÑO
-Sector Minería e Hidrocarburos
+Hidrocarburos
+Redacta 1 párrafo. Si hay evidencia coyuntural, explica el hecho y sus implicancias operativas sin repetir porcentajes.
 
-Redacta:
-- párrafo del sector total
-- párrafo de minería metálica
-- párrafo de hidrocarburos
+CONTEXTO LOCAL:
+{contexto_local}
 
-Si tipo_reporte = "mensual_y_acumulado":
-
-Producción Sectorial: MES AÑO
-Sector Minería e Hidrocarburos
-
-Redacta:
-- párrafo del sector total
-- párrafo de minería metálica
-- párrafo de hidrocarburos
-
-Producción Sectorial: Enero-MES AÑO
-Sector Minería e Hidrocarburos
-
-Redacta el bloque acumulado enero-MES usando las variaciones acumuladas e incidencias acumuladas si están disponibles.
-
-Si tipo_reporte = "anual_y_mensual":
-
-Producción Sectorial: Año AÑO
-Sector Minería e Hidrocarburos
-
-Redacta primero el bloque anual.
-
-Producción Sectorial: MES AÑO
-Sector Minería e Hidrocarburos
-
-Redacta:
-- párrafo del sector total
-- párrafo de minería metálica
-- párrafo de hidrocarburos
-
-REGLAS DE FORMATO:
-- No uses numeración tipo 1., 2., 3.
-- Usa viñetas solo en el bloque inicial de EVOLUCIÓN SECTORIAL.
-- Respeta exactamente los títulos indicados.
-- No agregues títulos no solicitados.
-
-- Respeta el tipo_reporte indicado en el contexto.
-- Si tipo_reporte = "mensual", no generes bloque acumulado.
-- Si tipo_reporte = "anual_y_mensual", genera primero el bloque anual y luego el bloque mensual.
-- Si tipo_reporte = "mensual_y_acumulado", genera bloque mensual y luego bloque acumulado.
-
-Debes generar tres salidas independientes:
-
-REPORTE_1_EVOLUCION_SECTORIAL
-REPORTE_2_PRODUCCION_MENSUAL
-REPORTE_3_ACUMULADO_O_ANUAL
-
-Si tipo_reporte = "mensual", el tercer reporte debe indicar: NO APLICA.
-Si tipo_reporte = "mensual_y_acumulado", el tercer reporte corresponde al acumulado enero-mes.
-Si tipo_reporte = "anual_y_mensual", el tercer reporte corresponde al año completo.
-
-- El orden de los subsectores debe seguir "orden_subsectores" del contexto.
-- Primero menciona el subsector con mayor incidencia absoluta en el resultado del sector.
-- Luego menciona el otro subsector.
-
-DATOS:
-{json.dumps(contexto, ensure_ascii=False, indent=2)}
+CONTEXTO WEB:
+{contexto_web}
 """

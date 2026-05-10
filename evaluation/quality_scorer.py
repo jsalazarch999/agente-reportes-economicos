@@ -1,12 +1,11 @@
 from pathlib import Path
-#from difflib import SequenceMatcher
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from llm.evaluator import evaluar_texto
+from evaluation.rule_checker import evaluar_texto
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-BENCHMARK_DIR = BASE_DIR / "data" / "corpus" / "mineria_hidrocarburos" / "processed"
+BENCHMARK_DIR = BASE_DIR / "data" / "corpus" / "mineria_hidrocarburos" / "benchmark"
 
 # cargar modelo una sola vez
 modelo_embeddings = SentenceTransformer(
@@ -45,11 +44,15 @@ def cobertura_productos(texto):
 
 
 def evaluar_calidad(texto_llm, periodo, contexto):
-    texto_benchmark = cargar_benchmark(periodo)
+    try:
+        texto_benchmark = cargar_benchmark(periodo)
+        score_similitud = similitud(texto_llm, texto_benchmark)
+        benchmark_usado = str(BENCHMARK_DIR / f"{periodo}.txt")
+    except FileNotFoundError:
+        score_similitud = 0
+        benchmark_usado = "No disponible"
 
     eval_reglas = evaluar_texto(texto_llm, contexto)
-
-    score_similitud = similitud(texto_llm, texto_benchmark)
     score_cobertura = cobertura_productos(texto_llm)
 
     score = 0
@@ -65,7 +68,7 @@ def evaluar_calidad(texto_llm, periodo, contexto):
     if len(eval_reglas["advertencias"]) == 0:
         score += 25
     elif len(eval_reglas["advertencias"]) <= 2:
-        score += 15
+        score += 5
     else:
         score -= 10
 
@@ -73,7 +76,7 @@ def evaluar_calidad(texto_llm, periodo, contexto):
 
     return {
         "periodo": periodo,
-        "benchmark_usado": str(BENCHMARK_DIR / f"{periodo}.txt"),
+        "benchmark_usado": benchmark_usado,
         "score_total": max(0, min(score, 100)),
         "similitud": round(score_similitud, 3),
         "cobertura_productos": round(score_cobertura, 3),

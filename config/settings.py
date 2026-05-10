@@ -7,8 +7,8 @@ load_dotenv()
 # MODELO ACTIVO
 # =========================
 
-ACTIVE_MODEL = "gemini"
-# opciones: qwen | llama3 | openai | gemini
+ACTIVE_MODEL = "anthropic"
+# opciones: qwen | llama3 | openai | gemini | anthropic
 
 
 # =========================
@@ -34,6 +34,11 @@ MODELS = {
     "gemini": {
         "provider": "google",
         "model_name": "gemini-1.5-flash",
+    },
+
+    "anthropic": {
+        "provider": "anthropic",
+        "model_name": "claude-3-5-sonnet-20241022",
     }
 }
 
@@ -45,6 +50,7 @@ MODELS = {
 HF_TOKEN = os.getenv("HF_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 
 # =========================

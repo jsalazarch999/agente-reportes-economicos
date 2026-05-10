@@ -1,3 +1,5 @@
+from anthropic import Anthropic
+
 from groq import Groq
 import google.generativeai as genai
 
@@ -7,7 +9,7 @@ from huggingface_hub import InferenceClient
 
 try:
     from openai import OpenAI
-except:
+except ImportError:
     OpenAI = None
 
 load_dotenv()
@@ -78,6 +80,44 @@ def get_client(modelo="qwen"):
             "model": "gemini-2.5-flash"
         }
     
+    elif modelo == "anthropic":
 
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+
+        if not api_key:
+            raise ValueError("Falta ANTHROPIC_API_KEY en .env")
+
+        client = Anthropic(
+            api_key=api_key
+        )
+
+        return {
+            "tipo": "anthropic",
+            "client": client,
+            "model": "claude-sonnet-4-6"
+        }
+    
+    elif modelo == "deepseek":
+
+        if OpenAI is None:
+            raise ImportError("OpenAI SDK no está instalado para usar DeepSeek")
+
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+
+        if not api_key:
+            raise ValueError("Falta DEEPSEEK_API_KEY en .env")
+
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
+
+        return {
+            "tipo": "openai",
+            "client": client,
+            #"model": "deepseek-v4-flash"
+            "model": "deepseek-v4-pro"
+        }
+    
     else:
         raise ValueError(f"Modelo no soportado: {modelo}")

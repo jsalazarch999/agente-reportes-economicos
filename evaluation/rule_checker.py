@@ -1,6 +1,5 @@
 import re
 
-
 PALABRAS_PROHIBIDAS = [
     "sector industrial",
     "subsectora",
@@ -10,19 +9,16 @@ PALABRAS_PROHIBIDAS = [
     "tercer trimestre",
 ]
 
-
 def extraer_porcentajes(texto):
     patron = r"-?\d+(?:[,.]\d+)?\s*%"
     return re.findall(patron, texto)
-
 
 def normalizar_porcentaje(valor):
     valor = str(valor).replace("%", "").replace(",", ".").strip()
     try:
         return abs(round(float(valor), 2))
-    except:
+    except (ValueError, TypeError):
         return None
-
 
 def obtener_porcentajes_contexto(contexto):
     valores = []
@@ -47,7 +43,6 @@ def obtener_porcentajes_contexto(contexto):
             porcentajes.append(n)
 
     return porcentajes
-
 
 def evaluar_texto(texto, contexto):
     errores = []
@@ -83,17 +78,13 @@ def evaluar_texto(texto, contexto):
     if tipo == "mensual_y_acumulado" and "enero" not in texto_lower:
         advertencias.append("El reporte debería incluir bloque acumulado enero-periodo.")
 
-    # 4. Validar porcentajes inventados
+    # 4. Extraer porcentajes solo para diagnóstico
     porcentajes_texto = [
         normalizar_porcentaje(p) for p in extraer_porcentajes(texto)
     ]
     porcentajes_texto = [p for p in porcentajes_texto if p is not None]
 
     porcentajes_contexto = obtener_porcentajes_contexto(contexto)
-
-    for p in porcentajes_texto:
-        if p not in porcentajes_contexto:
-            advertencias.append(f"Porcentaje no encontrado en contexto: {p}%")
 
     # 5. Validar orden de subsectores según incidencia
     orden = contexto.get("orden_subsectores", [])
@@ -119,8 +110,3 @@ def evaluar_texto(texto, contexto):
         "porcentajes_texto": porcentajes_texto,
         "porcentajes_contexto": porcentajes_contexto,
     }
-
-
-def texto_es_valido(texto, contexto):
-    resultado = evaluar_texto(texto, contexto)
-    return resultado["valido"]

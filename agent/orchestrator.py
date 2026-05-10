@@ -1,34 +1,15 @@
-import pandas as pd
-
+from core.loader import cargar_excel, obtener_periodos, filtrar_periodo
+from core.validator import validar_dataframe, validar_periodo
 from core.context_builder import construir_contexto
 from llm.generator import generar_texto
 
 
 def procesar_excel(archivo, periodo=None, sector="Minería e Hidrocarburos"):
-    """
-    Lee el Excel, selecciona un periodo y construye:
-    - dataframe del periodo
-    - contexto estructurado
-    - texto base
-    """
+    df = cargar_excel(archivo)
 
-    df = pd.read_excel(archivo)
+    validar_dataframe(df)
 
-    # Normalizar nombres de columnas
-    df.columns = [c.strip().lower() for c in df.columns]
-
-    # Normalizar columnas clave
-    if "periodo" in df.columns:
-        df["periodo"] = df["periodo"].astype(str).str.strip()
-
-    if "clasificacion" in df.columns:
-        df["clasificacion"] = df["clasificacion"].astype(str).str.strip()
-
-    if "nombre" in df.columns:
-        df["nombre"] = df["nombre"].astype(str).str.strip()
-
-    # Periodos disponibles
-    periodos = sorted(df["periodo"].dropna().unique())
+    periodos = obtener_periodos(df)
 
     if periodo is None:
         return {
@@ -36,13 +17,10 @@ def procesar_excel(archivo, periodo=None, sector="Minería e Hidrocarburos"):
             "periodos": periodos
         }
 
-    # Filtrar periodo seleccionado
-    df_periodo = df[df["periodo"] == str(periodo)].copy()
+    df_periodo = filtrar_periodo(df, periodo)
 
-    if df_periodo.empty:
-        raise ValueError(f"No hay datos para el periodo {periodo}")
+    validar_periodo(df_periodo)
 
-    # Construir contexto y texto base
     contexto, texto_base = construir_contexto(df_periodo, periodo)
 
     return {
@@ -54,13 +32,21 @@ def procesar_excel(archivo, periodo=None, sector="Minería e Hidrocarburos"):
     }
 
 
-def generar_reporte_llm(contexto, modelo="qwen"):
-    """
-    Genera el reporte usando el modelo configurado.
-    """
+def generar_reporte_llm(contexto, texto_base=None, modelo="qwen"):
+    contexto_final = contexto.copy()
+
+    if texto_base is not None:
+        if isinstance(texto_base, dict):
+            texto_base = "\n\n".join([
+                texto_base.get("reporte_1", ""),
+                texto_base.get("reporte_2", ""),
+                texto_base.get("reporte_3", "")
+            ])
+
+        contexto_final["texto_base"] = texto_base
 
     texto = generar_texto(
-        contexto=contexto,
+        contexto=contexto_final,
         modelo=modelo
     )
 

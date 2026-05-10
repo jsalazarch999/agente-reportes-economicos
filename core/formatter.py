@@ -5,7 +5,7 @@ def formatear(num):
     """
     try:
         return f"{float(num):.2f}".replace(".", ",")
-    except:
+    except (ValueError, TypeError):
         return "0,00"
 
 
@@ -67,3 +67,13 @@ def lista_nombres(df):
         return ""
 
     return ", ".join([str(row["nombre"]).lower() for _, row in df.iterrows()])
+
+def lista_productos_acumulado(df):
+    partes = []
+
+    for _, row in df.iterrows():
+        nombre = row["nombre"]
+        variacion = formatear(float(row["variacion_acumulada"]))
+        partes.append(f"{nombre.lower()} en {variacion}%")
+
+    return ", ".join(partes)

@@ -8,7 +8,6 @@ COLUMNAS_REQUERIDAS = [
     "incidencia_acumulada",
 ]
 
-
 def validar_columnas(df):
     faltantes = [c for c in COLUMNAS_REQUERIDAS if c not in df.columns]
 
@@ -18,7 +17,6 @@ def validar_columnas(df):
         )
 
     return True
-
 
 def validar_filas_principales(df):
     requeridas = [
@@ -45,7 +43,6 @@ def validar_filas_principales(df):
 
     return True
 
-
 def validar_numericos(df):
     columnas_numericas = [
         "variacion_interanual",
@@ -68,21 +65,11 @@ def validar_numericos(df):
 
     return True
 
-
 def validar_dataframe(df):
-    """
-    Ejecuta todas las validaciones básicas.
-    """
     validar_columnas(df)
     validar_numericos(df)
-
     return True
 
-
 def validar_periodo(df_periodo):
-    """
-    Valida que el periodo seleccionado tenga filas principales.
-    """
     validar_filas_principales(df_periodo)
-
     return True
