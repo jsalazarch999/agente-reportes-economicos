@@ -234,11 +234,12 @@ if archivo:
             )
 
             st.subheader("Evaluación de calidad")
-            st.write(f"Score total: {resultado_eval['score_total']}")
-            st.write(f"Similitud: {resultado_eval['similitud']}")
-            st.write(f"Cobertura productos: {resultado_eval['cobertura_productos']}")
-            st.write(f"Válido: {resultado_eval['valido']}")
-            st.write(f"Benchmark usado: {resultado_eval['benchmark_usado']}")
+
+            col_a, col_b, col_c, col_d = st.columns(4)
+            col_a.metric("Score total", resultado_eval["score_total"])
+            col_b.metric("Similitud", resultado_eval["similitud"])
+            col_c.metric("Cobertura productos", resultado_eval["cobertura_productos"])
+            col_d.metric("Válido", "Sí" if resultado_eval["valido"] else "No")
 
             if resultado_eval["benchmark_usado"] != "No disponible":
                 with st.expander("Ver benchmark histórico"):
@@ -246,18 +247,30 @@ if archivo:
                         resultado_eval["benchmark_usado"],
                         encoding="utf-8"
                     ).read()
+                    st.text_area("Benchmark histórico", benchmark_texto, height=400)
 
-                    st.text_area(
-                        "Benchmark histórico",
-                        benchmark_texto,
-                        height=400
-                    )
+            if resultado_eval["errores_porcentajes"]:
+                st.error("Alucinaciones numéricas detectadas:")
+                for e in resultado_eval["errores_porcentajes"]:
+                    st.write(f"• {e}")
+
+            if resultado_eval["advertencias_porcentajes"]:
+                st.warning("Posibles redondeos:")
+                for a in resultado_eval["advertencias_porcentajes"]:
+                    st.write(f"• {a}")
 
             if resultado_eval["errores"]:
                 st.error(resultado_eval["errores"])
 
             if resultado_eval["advertencias"]:
                 st.warning(resultado_eval["advertencias"])
+
+            with st.expander("Ver porcentajes comparados"):
+                col1, col2 = st.columns(2)
+                col1.write("Del contexto (Excel):")
+                col1.write(resultado_eval["porcentajes_contexto"])
+                col2.write("Del texto generado:")
+                col2.write(resultado_eval["porcentajes_texto"])
 
         # =========================
         # DEBUG
