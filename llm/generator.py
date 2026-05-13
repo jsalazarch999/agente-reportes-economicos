@@ -28,13 +28,6 @@ def generar_con_prompt(prompt, modelo="qwen", temperature=TEMPERATURE, max_token
     elif tipo == "openai":
         extra_body = None
 
-        if "deepseek" in model_name:
-            extra_body = {
-                "thinking": {
-                    "type": "disabled"
-                }
-            }
-
         response = client.chat.completions.create(
             model=model_name,
             messages=[
@@ -93,6 +86,25 @@ def generar_con_prompt(prompt, modelo="qwen", temperature=TEMPERATURE, max_token
         )
 
         return response.content[0].text
+    
+    elif tipo == "deepseek":
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            extra_body={"thinking": {"type": "disabled"}}
+        )
+
+        contenido = response.choices[0].message.content
+
+        if not contenido or not contenido.strip():
+            raise ValueError(f"El modelo {model_name} devolvió una respuesta vacía.")
+
+        return contenido
 
     else:
         raise ValueError(f"Tipo de modelo no soportado: {tipo}")

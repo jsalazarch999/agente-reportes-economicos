@@ -95,7 +95,7 @@ def get_client(modelo="qwen") -> dict:
         return {
             "tipo": "deepseek",  # distinto de "openai" para evitar ambigüedad
             "client": client,
-            "model": "deepseek-v4-pro"  # alternativa económica: deepseek-v4-flash
+            "model": "deepseek-v4-flash"  # alternativa económica: deepseek-v4-flash deepseek-v4-pro
         }
 
     else:
