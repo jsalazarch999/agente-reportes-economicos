@@ -4,27 +4,26 @@ from core.context_builder import construir_contexto
 from llm.generator import generar_texto
 
 
-def procesar_excel(archivo, periodo=None, sector="Minería e Hidrocarburos"):
+def obtener_periodos_excel(archivo):
+    """Carga el Excel y retorna los periodos disponibles."""
     df = cargar_excel(archivo)
-
     validar_dataframe(df)
+    periodos = obtener_periodos(df)
+    return {"df": df, "periodos": periodos}
 
+
+def procesar_periodo_excel(archivo, periodo, sector="Minería e Hidrocarburos"):
+    """Procesa un periodo específico del Excel y retorna contexto y texto base."""
+    df = cargar_excel(archivo)
+    validar_dataframe(df)
     periodos = obtener_periodos(df)
 
-    if periodo is None:
-        return {
-            "df": df,
-            "periodos": periodos
-        }
-
     df_periodo = filtrar_periodo(df, periodo)
-
     validar_periodo(df_periodo)
 
-    contexto, texto_base = construir_contexto(df_periodo, periodo)
+    contexto, texto_base = construir_contexto(df_periodo, periodo, sector)
 
     return {
-        "df": df,
         "periodos": periodos,
         "df_periodo": df_periodo,
         "contexto": contexto,
@@ -33,21 +32,16 @@ def procesar_excel(archivo, periodo=None, sector="Minería e Hidrocarburos"):
 
 
 def generar_reporte_llm(contexto, texto_base=None, modelo="qwen"):
+    """Genera el reporte final usando el LLM indicado."""
     contexto_final = contexto.copy()
 
     if texto_base is not None:
         if isinstance(texto_base, dict):
-            texto_base = "\n\n".join([
-                texto_base.get("reporte_1", ""),
-                texto_base.get("reporte_2", ""),
-                texto_base.get("reporte_3", "")
-            ])
-
+            texto_base = "\n\n".join(filter(None, [
+                texto_base.get("reporte_1"),
+                texto_base.get("reporte_2"),
+                texto_base.get("reporte_3"),
+            ]))
         contexto_final["texto_base"] = texto_base
 
-    texto = generar_texto(
-        contexto=contexto_final,
-        modelo=modelo
-    )
-
-    return texto
+    return generar_texto(contexto=contexto_final, modelo=modelo)

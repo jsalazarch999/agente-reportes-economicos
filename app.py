@@ -1,8 +1,12 @@
 import streamlit as st
+from dotenv import load_dotenv
 from rag.context_enricher import enriquecer_contexto_rag
-from agent.orchestrator import procesar_excel, generar_reporte_llm
+from agent.orchestrator import obtener_periodos_excel, procesar_periodo_excel, generar_reporte_llm
 from evaluation.quality_scorer import evaluar_calidad
 from llm.generator import generar_comentario_causal
+from llm.clients import modelos_disponibles
+
+load_dotenv()
 
 st.set_page_config(
     page_title="Agente de Reportes Económicos",
@@ -11,7 +15,7 @@ st.set_page_config(
 
 st.title("Agente de Reportes Económicos")
 
-MODELOS_DISPONIBLES = ["qwen", "llama3", "openai", "gemini", "anthropic", "deepseek"]
+MODELOS_DISPONIBLES = modelos_disponibles()
 
 # =========================
 # CONFIGURACIÓN DE SECTORES
@@ -85,21 +89,15 @@ archivo = st.file_uploader(
 )
 
 if archivo:
-
     try:
-        resultado = procesar_excel(
-            archivo=archivo,
-            sector=sector
-        )
-
+        # Una sola lectura para obtener periodos
+        resultado = obtener_periodos_excel(archivo)
         periodos = resultado["periodos"]
 
-        periodo = st.selectbox(
-            "Selecciona periodo",
-            periodos
-        )
+        periodo = st.selectbox("Selecciona periodo", periodos)
 
-        datos_periodo = procesar_excel(
+        # Procesar el periodo seleccionado
+        datos_periodo = procesar_periodo_excel(
             archivo=archivo,
             periodo=periodo,
             sector=sector
@@ -119,11 +117,7 @@ if archivo:
         with col1:
             st.subheader("Reportes base determinísticos")
 
-            tab1, tab2, tab3 = st.tabs([
-                "Reporte 1",
-                "Reporte 2",
-                "Reporte 3"
-            ])
+            tab1, tab2, tab3 = st.tabs(["Reporte 1", "Reporte 2", "Reporte 3"])
 
             with tab1:
                 st.text_area(
@@ -140,15 +134,12 @@ if archivo:
                 )
 
             with tab3:
-                if datos_periodo["texto_base"]["reporte_3"]:
-                    st.text_area(
-                        "Reporte base 3",
-                        datos_periodo["texto_base"]["reporte_3"],
-                        height=500
-                    )
+                reporte_3 = datos_periodo["texto_base"]["reporte_3"]
+                if reporte_3:
+                    st.text_area("Reporte base 3", reporte_3, height=500)
                 else:
                     st.info("No aplica para este periodo")
-        
+
         with col2:
             st.subheader("Texto mejorado con IA")
 
@@ -182,6 +173,10 @@ if archivo:
                     height=500
                 )
 
+        # =========================
+        # SECCIÓN POST-GENERACIÓN
+        # =========================
+
         if "texto_llm" in st.session_state:
             texto_llm = st.session_state["texto_llm"]
             contexto_final = st.session_state["contexto_final"]
@@ -193,7 +188,6 @@ if archivo:
                     contexto_final,
                     modelo=modelo
                 )
-
                 st.text_area(
                     "Comentario causal por subsector",
                     comentario_causal,
@@ -202,27 +196,23 @@ if archivo:
 
                 with st.expander("Contexto local curado consultado"):
                     contexto_local = contexto_final.get("contexto_local", {})
-                    st.write(
-                        contexto_local.get(
-                            "resumen_para_llm",
-                            "No se encontró contexto local."
-                        )
-                    )
+                    st.write(contexto_local.get(
+                        "resumen_para_llm",
+                        "No se encontró contexto local."
+                    ))
 
                 with st.expander("Fuentes web consultadas"):
                     contexto_web = contexto_final.get("contexto_web", {})
                     st.write("Consulta:", contexto_web.get("query", ""))
-
                     for fuente in contexto_web.get("fuentes", []):
-                        st.markdown(
-                            f"- [{fuente.get('titulo')}]({fuente.get('url')})"
-                        )
+                        st.markdown(f"- [{fuente.get('titulo')}]({fuente.get('url')})")
 
-            texto_base_completo = "\n\n".join([
+            # Armar texto base completo para evaluación (ignorando reporte_3 si es None)
+            texto_base_completo = "\n\n".join(filter(None, [
                 datos_periodo["texto_base"]["reporte_1"],
                 datos_periodo["texto_base"]["reporte_2"],
-                datos_periodo["texto_base"]["reporte_3"]
-            ])
+                datos_periodo["texto_base"]["reporte_3"],
+            ]))
 
             contexto_eval = contexto_final.copy()
             contexto_eval["texto_base"] = texto_base_completo
@@ -232,6 +222,10 @@ if archivo:
                 periodo=periodo,
                 contexto=contexto_eval
             )
+
+            # =========================
+            # EVALUACIÓN DE CALIDAD
+            # =========================
 
             st.subheader("Evaluación de calidad")
 
@@ -243,27 +237,26 @@ if archivo:
 
             if resultado_eval["benchmark_usado"] != "No disponible":
                 with st.expander("Ver benchmark histórico"):
-                    benchmark_texto = open(
-                        resultado_eval["benchmark_usado"],
-                        encoding="utf-8"
-                    ).read()
-                    st.text_area("Benchmark histórico", benchmark_texto, height=400)
+                    with open(resultado_eval["benchmark_usado"], encoding="utf-8") as f:
+                        st.text_area("Benchmark histórico", f.read(), height=400)
 
-            if resultado_eval["errores_porcentajes"]:
+            if resultado_eval.get("errores_porcentajes"):
                 st.error("Alucinaciones numéricas detectadas:")
                 for e in resultado_eval["errores_porcentajes"]:
                     st.write(f"• {e}")
 
-            if resultado_eval["advertencias_porcentajes"]:
+            if resultado_eval.get("advertencias_porcentajes"):
                 st.warning("Posibles redondeos:")
                 for a in resultado_eval["advertencias_porcentajes"]:
                     st.write(f"• {a}")
 
-            if resultado_eval["errores"]:
-                st.error(resultado_eval["errores"])
+            if resultado_eval.get("errores"):
+                for e in resultado_eval["errores"]:
+                    st.error(e)
 
-            if resultado_eval["advertencias"]:
-                st.warning(resultado_eval["advertencias"])
+            if resultado_eval.get("advertencias"):
+                for a in resultado_eval["advertencias"]:
+                    st.warning(a)
 
             with st.expander("Ver porcentajes comparados"):
                 col1, col2 = st.columns(2)
@@ -277,7 +270,6 @@ if archivo:
         # =========================
 
         if mostrar_debug:
-
             with st.expander("Ver contexto estructurado para LLM"):
                 st.json(datos_periodo["contexto"])
 
