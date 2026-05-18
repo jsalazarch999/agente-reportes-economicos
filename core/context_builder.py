@@ -34,8 +34,13 @@ ORDEN_HIDRO = [
     "Gas natural"
 ]
 
+# Umbral de incidencia para considerar un producto como "de alta incidencia"
+# El RAG recuperará documentos específicos para estos productos
+UMBRAL_ALTA_INCIDENCIA = 0.3
+
+
 # =====================================================
-# HELPERS
+# HELPERS EXISTENTES (sin cambios)
 # =====================================================
 
 def obtener_fila(df, clasificacion, nombre):
@@ -63,29 +68,112 @@ def ordenar_productos(df, orden):
 
 
 def _suma_incidencia(df, col):
-    """Suma una columna de incidencia, retorna 0 si el df está vacío."""
     return df[col].sum() if not df.empty else 0
 
 
 def _lista_acum(df):
-    """Retorna lista acumulada formateada o string vacío."""
     return lista_productos_acumulado(df) if not df.empty else ""
 
 
 def _lista_prod(df):
-    """Retorna lista de productos formateada o string vacío."""
     return lista_productos(df) if not df.empty else ""
 
 
 # =====================================================
-# TEXTOS ACUMULADOS
+# HELPERS NUEVOS
+# =====================================================
+
+def _obtener_empresas_por_producto(df_periodo, nombre_producto):
+    """
+    Retorna lista de empresas asociadas a un producto si existe
+    la columna 'empresa' en el DataFrame. Retorna lista vacía si no.
+    """
+    if "empresa" not in df_periodo.columns:
+        return []
+
+    filas = df_periodo[
+        (df_periodo["clasificacion"].str.lower() == "producto") &
+        (df_periodo["nombre"].str.lower() == nombre_producto.lower()) &
+        (df_periodo["empresa"].notna()) &
+        (df_periodo["empresa"].str.strip() != "")
+    ]
+
+    return filas["empresa"].str.strip().unique().tolist()
+
+
+def _obtener_precio_producto(df_periodo, nombre_producto):
+    """
+    Retorna el precio internacional de un producto si existe
+    la columna 'precio_internacional'. Retorna None si no.
+    """
+    if "precio_internacional" not in df_periodo.columns:
+        return None
+
+    filas = df_periodo[
+        (df_periodo["clasificacion"].str.lower() == "producto") &
+        (df_periodo["nombre"].str.lower() == nombre_producto.lower()) &
+        (df_periodo["precio_internacional"].notna())
+    ]
+
+    if filas.empty:
+        return None
+
+    return round(float(filas.iloc[0]["precio_internacional"]), 2)
+
+
+def _productos_alta_incidencia(productos_df, col_incidencia, umbral=UMBRAL_ALTA_INCIDENCIA):
+    """
+    Retorna lista de nombres de productos cuya incidencia absoluta
+    supera el umbral definido. Usada por el RAG para recuperación focalizada.
+    """
+    if productos_df.empty:
+        return []
+
+    return productos_df[
+        productos_df[col_incidencia].abs() >= umbral
+    ]["nombre"].tolist()
+
+
+def _construir_contexto_productos(df_periodo, productos_df, subsector):
+    """
+    Construye el bloque de contexto de productos para el JSON del LLM.
+    Incluye empresa y precio si están disponibles en los datos.
+    """
+    productos_contexto = []
+
+    for _, row in productos_df.iterrows():
+        nombre = row["nombre"]
+        entry = {
+            "nombre": nombre,
+            "subsector": subsector,
+            "variacion_interanual": round(float(row["variacion_interanual"]), 2),
+            "incidencia_interanual": round(float(row["incidencia_interanual"]), 2),
+            "variacion_acumulada":   round(float(row["variacion_acumulada"]), 2),
+        }
+
+        # Empresa: solo si existe en los datos
+        empresas = _obtener_empresas_por_producto(df_periodo, nombre)
+        if empresas:
+            entry["empresas"] = empresas
+
+        # Precio: solo si existe en los datos
+        precio = _obtener_precio_producto(df_periodo, nombre)
+        if precio is not None:
+            entry["precio_internacional"] = precio
+
+        productos_contexto.append(entry)
+
+    return productos_contexto
+
+
+# =====================================================
+# TEXTOS ACUMULADOS (sin cambios)
 # =====================================================
 
 def _texto_mm_acumulado(sector_row, mm, mes_texto, anio_texto,
                          mm_pos_acum, mm_neg_acum,
                          lista_mm_pos_acum, lista_mm_neg_acum,
                          inc_mm_pos_acum, inc_mm_neg_acum):
-    """Genera el párrafo acumulado de minería metálica."""
     var_sector_acum = float(sector_row["variacion_acumulada"])
     var_mm_acum = float(mm["variacion_acumulada"])
     crec_sector = "crecimiento" if var_sector_acum > 0 else "decrecimiento"
@@ -96,7 +184,7 @@ def _texto_mm_acumulado(sector_row, mm, mes_texto, anio_texto,
         f"El sector minería e hidrocarburos, {periodo_ref}, "
         f"registró un {crec_sector} de {formatear(abs(var_sector_acum))}%, "
         f"explicado por el desempeño {signo_mm} de la actividad minera metálica "
-        f"en {formatear(abs(var_mm_acum))}%"   # ✅ FIX 3: abs() agregado
+        f"en {formatear(abs(var_mm_acum))}%"
     )
 
     if not mm_pos_acum.empty and not mm_neg_acum.empty:
@@ -127,7 +215,6 @@ def _texto_hidro_acumulado(hidro, mes_texto, anio_texto,
                             hidro_pos_acum, hidro_neg_acum,
                             lista_hidro_pos_acum, lista_hidro_neg_acum,
                             inc_hidro_pos_acum, inc_hidro_neg_acum):
-    """Genera el párrafo acumulado de hidrocarburos."""
     var_hidro_acum = float(hidro["variacion_acumulada"])
     crec = "crecimiento" if var_hidro_acum > 0 else "disminución"
 
@@ -168,14 +255,19 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
     """
     Construye el contexto estructurado para el LLM
     y los textos base determinísticos.
+
+    El contexto ahora incluye:
+    - empresas por producto (si disponibles en los datos)
+    - precios internacionales (si disponibles en los datos)
+    - productos_alta_incidencia (para focalizar la recuperación RAG)
     """
     mes_texto, anio_texto = periodo_a_texto(periodo)
     tipo_reporte = obtener_tipo_reporte(periodo)
 
     # --- Filas principales ---
     sector_row = obtener_fila(df_periodo, "sector", sector)
-    mm = obtener_fila(df_periodo, "subsector", "Minería Metálica")
-    hidro = obtener_fila(df_periodo, "subsector", "Hidrocarburos")
+    mm         = obtener_fila(df_periodo, "subsector", "Minería Metálica")
+    hidro      = obtener_fila(df_periodo, "subsector", "Hidrocarburos")
 
     if sector_row is None or mm is None or hidro is None:
         raise ValueError("Faltan filas principales del sector o subsectores.")
@@ -187,60 +279,59 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
             (df_periodo["nombre"].isin(nombres_validos))
         ].copy()
 
-    productos_mm = ordenar_productos(filtrar_productos(PRODUCTOS_MM), ORDEN_MM)
+    productos_mm    = ordenar_productos(filtrar_productos(PRODUCTOS_MM),    ORDEN_MM)
     productos_hidro = ordenar_productos(filtrar_productos(PRODUCTOS_HIDRO), ORDEN_HIDRO)
 
     # --- Variaciones ---
-    var_sector = float(sector_row["variacion_interanual"])
-    var_mm = float(mm["variacion_interanual"])
-    var_hidro = float(hidro["variacion_interanual"])
+    var_sector     = float(sector_row["variacion_interanual"])
+    var_mm         = float(mm["variacion_interanual"])
+    var_hidro      = float(hidro["variacion_interanual"])
     var_sector_acum = float(sector_row["variacion_acumulada"])
-    var_mm_acum = float(mm["variacion_acumulada"])
+    var_mm_acum    = float(mm["variacion_acumulada"])
     var_hidro_acum = float(hidro["variacion_acumulada"])
-    inc_mm = float(mm["incidencia_interanual"])
-    inc_hidro = float(hidro["incidencia_interanual"])
+    inc_mm         = float(mm["incidencia_interanual"])
+    inc_hidro      = float(hidro["incidencia_interanual"])
 
     # --- Splits interanuales ---
-    mm_pos = productos_mm[productos_mm["variacion_interanual"] > 0].copy()
-    mm_neg = productos_mm[productos_mm["variacion_interanual"] < 0].copy()
+    mm_pos    = productos_mm[productos_mm["variacion_interanual"] > 0].copy()
+    mm_neg    = productos_mm[productos_mm["variacion_interanual"] < 0].copy()
     hidro_pos = productos_hidro[productos_hidro["variacion_interanual"] > 0].copy()
     hidro_neg = productos_hidro[productos_hidro["variacion_interanual"] < 0].copy()
 
-    lista_mm_pos = _lista_prod(mm_pos)
-    lista_mm_neg = _lista_prod(mm_neg)
-    lista_hidro_pos = _lista_prod(hidro_pos)
-    lista_hidro_neg = _lista_prod(hidro_neg)
+    lista_mm_pos           = _lista_prod(mm_pos)
+    lista_mm_neg           = _lista_prod(mm_neg)
+    lista_hidro_pos        = _lista_prod(hidro_pos)
+    lista_hidro_neg        = _lista_prod(hidro_neg)
     lista_hidro_neg_nombres = lista_nombres(hidro_neg) if not hidro_neg.empty else ""
 
     inc_pos = mm_pos["incidencia_interanual"].sum() if not mm_pos.empty else 0
     inc_neg = abs(mm_neg["incidencia_interanual"].sum()) if not mm_neg.empty else 0
 
     # --- Splits acumulados ---
-    mm_pos_acum = productos_mm[productos_mm["variacion_acumulada"] > 0].copy()
-    mm_neg_acum = productos_mm[productos_mm["variacion_acumulada"] < 0].copy()
+    mm_pos_acum    = productos_mm[productos_mm["variacion_acumulada"] > 0].copy()
+    mm_neg_acum    = productos_mm[productos_mm["variacion_acumulada"] < 0].copy()
     hidro_pos_acum = productos_hidro[productos_hidro["variacion_acumulada"] > 0].copy()
     hidro_neg_acum = productos_hidro[productos_hidro["variacion_acumulada"] < 0].copy()
 
-    mm_pos_acum = mm_pos_acum.sort_values("incidencia_acumulada", ascending=False)
-    mm_neg_acum = mm_neg_acum.sort_values("incidencia_acumulada", ascending=True)
+    mm_pos_acum    = mm_pos_acum.sort_values("incidencia_acumulada", ascending=False)
+    mm_neg_acum    = mm_neg_acum.sort_values("incidencia_acumulada", ascending=True)
     hidro_pos_acum = hidro_pos_acum.sort_values("incidencia_acumulada", ascending=False)
     hidro_neg_acum = hidro_neg_acum.sort_values("incidencia_acumulada", ascending=True)
 
-    lista_mm_pos_acum = _lista_acum(mm_pos_acum)
-    lista_mm_neg_acum = _lista_acum(mm_neg_acum)
+    lista_mm_pos_acum    = _lista_acum(mm_pos_acum)
+    lista_mm_neg_acum    = _lista_acum(mm_neg_acum)
     lista_hidro_pos_acum = _lista_acum(hidro_pos_acum)
     lista_hidro_neg_acum = _lista_acum(hidro_neg_acum)
 
-    inc_mm_pos_acum = _suma_incidencia(mm_pos_acum, "incidencia_acumulada")
-    inc_mm_neg_acum = _suma_incidencia(mm_neg_acum, "incidencia_acumulada")
+    inc_mm_pos_acum    = _suma_incidencia(mm_pos_acum,    "incidencia_acumulada")
+    inc_mm_neg_acum    = _suma_incidencia(mm_neg_acum,    "incidencia_acumulada")
     inc_hidro_pos_acum = _suma_incidencia(hidro_pos_acum, "incidencia_acumulada")
     inc_hidro_neg_acum = _suma_incidencia(hidro_neg_acum, "incidencia_acumulada")
 
     # =====================================================
-    # TEXTOS INTERANUALES
+    # TEXTOS INTERANUALES (sin cambios)
     # =====================================================
 
-    # FIX 1: rama negativa ya tenía abs(), rama positiva no — corregido
     texto_resumen_hidro = (
         f"determinado por el comportamiento decreciente del subsector hidrocarburos "
         f"en {formatear(abs(var_hidro))}%, con reportes a la baja de {lista_hidro_neg_nombres}"
@@ -265,7 +356,6 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
         f"como consecuencia del mayor volumen registrado de {lista_hidro_pos}."
     )
 
-    # FIX 2: "incremento de" llevaba var_mm sin abs()
     if var_mm > 0:
         texto_detalle_mm = (
             f"El subsector minero metálico registró incremento de {formatear(abs(var_mm))}%, "
@@ -284,7 +374,6 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
             if lista_mm_pos else "."
         )
 
-    # Sin dirección explícita → signo válido e intencional
     texto1 = (
         f"El sector minería e hidrocarburos registró en {mes_texto} de {anio_texto} "
         f"un {'crecimiento' if var_sector > 0 else 'decrecimiento'} de "
@@ -329,14 +418,13 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
                 f"; resultado parcialmente limitado por la menor producción de "
                 f"{lista_hidro_neg}"
             )
-    # Incidencia lleva signo siempre — correcto
     texto3 += (
         f", que en conjunto determinaron una incidencia de "
         f"{formatear(inc_hidro)} puntos porcentuales."
     )
 
     # =====================================================
-    # CONTEXTO PARA LLM
+    # CONTEXTO PARA LLM — ENRIQUECIDO
     # =====================================================
 
     orden_subsectores = [
@@ -347,30 +435,49 @@ def construir_contexto(df_periodo, periodo, sector="Minería e Hidrocarburos"):
         )
     ]
 
+    # Productos de alta incidencia — usados por el RAG para recuperación focalizada
+    alta_inc_mm    = _productos_alta_incidencia(productos_mm,    "incidencia_interanual")
+    alta_inc_hidro = _productos_alta_incidencia(productos_hidro, "incidencia_interanual")
+
     contexto = {
-        "periodo": str(periodo),
-        "periodo_texto": f"{mes_texto} de {anio_texto}",
-        "tipo_reporte": tipo_reporte,
+        "periodo":           str(periodo),
+        "periodo_texto":     f"{mes_texto} de {anio_texto}",
+        "tipo_reporte":      tipo_reporte,
         "orden_subsectores": orden_subsectores,
+
+        # Nuevo: lista de productos con alta incidencia para el RAG
+        "productos_alta_incidencia": {
+            "mineria_metalica": alta_inc_mm,
+            "hidrocarburos":    alta_inc_hidro,
+        },
+
         "sector": {
-            "nombre": sector,
+            "nombre":               sector,
             "variacion_interanual": round(var_sector, 2),
-            "variacion_acumulada": round(var_sector_acum, 2),
+            "variacion_acumulada":  round(var_sector_acum, 2),
         },
         "subsector_mineria_metalica": {
             "variacion_interanual": round(var_mm, 2),
-            "variacion_acumulada": round(var_mm_acum, 2),
+            "variacion_acumulada":  round(var_mm_acum, 2),
             "incidencia_interanual": round(inc_mm, 2),
+            # Nuevo: detalle de productos con empresa y precio si disponibles
+            "productos": _construir_contexto_productos(
+                df_periodo, productos_mm, "mineria_metalica"
+            ),
         },
         "subsector_hidrocarburos": {
             "variacion_interanual": round(var_hidro, 2),
-            "variacion_acumulada": round(var_hidro_acum, 2),
+            "variacion_acumulada":  round(var_hidro_acum, 2),
             "incidencia_interanual": round(inc_hidro, 2),
+            # Nuevo: detalle de productos con empresa y precio si disponibles
+            "productos": _construir_contexto_productos(
+                df_periodo, productos_hidro, "hidrocarburos"
+            ),
         },
     }
 
     # =====================================================
-    # REPORTES BASE
+    # REPORTES BASE (sin cambios)
     # =====================================================
 
     conector_resumen_mm = "En contraste" if var_hidro * var_mm < 0 else "Asimismo"

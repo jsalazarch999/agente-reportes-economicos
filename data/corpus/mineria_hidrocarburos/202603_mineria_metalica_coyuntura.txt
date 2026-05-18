@@ -1,0 +1,33 @@
+---
+sector: mineria_hidrocarburos
+subsector: mineria_metalica
+periodo: 202603
+tipo: coyuntural
+fuente: propia
+---
+
+🟢 Factores POSITIVOS
+1. Precios del cobre y el oro en niveles históricamente altos
+El factor más determinante del período fue el alza sostenida de precios. Las exportaciones peruanas alcanzaron US$ 27.217 millones en el primer trimestre de 2026, un crecimiento de 33,5% respecto al mismo periodo de 2025, favorecido principalmente por el incremento de los precios internacionales de los minerales, especialmente el cobre y el oro. La República
+En el caso específico del oro, las exportaciones del metal precioso alcanzaron en enero de 2026 un valor de US$ 2.687 millones, un incremento de 72,3% frente al mismo mes de 2025. El crecimiento se explicó principalmente por el aumento del precio internacional del oro, que subió 74,8% y alcanzó máximos históricos, impulsado por la volatilidad en los mercados financieros y las expectativas de una política monetaria más flexible por parte de la Reserva Federal de EE.UU. Redimin
+2. Inicio del año con producción en verde para la mayoría de metales
+La minería peruana inició el 2026 con resultados mayoritariamente positivos. De acuerdo con el Boletín Estadístico Minero del MINEM, siete de los ocho principales metales registraron incrementos en enero frente al mismo mes de 2025. El zinc registró el mayor crecimiento interanual con 14,7%, seguido de la plata con 4,5%, el estaño con 4,0%, el oro con 3,8%, el cobre con 3,0%, el plomo con 2,3% y el hierro con 1,2%. AmCham News
+3. Avance del proyecto Tía María (señal positiva de largo plazo)
+Al 31 de marzo de 2026, el avance del proyecto Tía María se situó en 32,5%, y 4.207 nuevos puestos de trabajo se habían generado. Southern Copper ha comprometido US$ 948 millones en diversas actividades del proyecto. El proyecto, que producirá 120.000 toneladas de cobre al año, avanza en cronograma. Rumbo Minero
+4. Inversión minera en alza
+La inversión minera en el Perú durante enero de 2026 alcanzó los US$ 398 millones, cantidad superior en 8,9% respecto al primer mes de 2025, impulsada por los rubros de infraestructura (+83,3%) y exploración (+32,9%). Diario Minero
+5. Boom exportador de minería metálica
+Las exportaciones mineras peruanas en el primer bimestre sumaron US$ 13.831 millones, un crecimiento de 59% respecto al mismo periodo de 2025. El cobre explicó el 46,2% del total exportado y el oro representó el 37,8%. Las exportaciones mineras representaron el 74% de los envíos totales del Perú al exterior. Diario Minero
+
+🔴 Factores NEGATIVOS
+1. Caída en la producción física de oro
+A pesar del boom de precios, la explotación de oro cayó 2% al alcanzar unas 16,2 toneladas métricas finas (TMF) en el primer bimestre. El oro venía de alcanzar niveles de producción cercanos a los 9 o incluso 10 TMF mensuales, pero en el inicio de 2026 se observa una caída a 8,8 TMF en enero y 7,4 TMF en febrero, marcando uno de los niveles más bajos de los últimos años. Gestión
+2. Avance imparable de la minería ilegal
+El avance de la minería ilegal añade un riesgo adicional, tanto por su impacto en la producción formal como por su creciente participación en las exportaciones. Las exportaciones ilegales de oro ya se acercan a niveles similares a los de la minería formal, con alrededor de US$ 12.000 millones exportados durante el año pasado. Esto deprime la producción formal medible y genera graves pasivos ambientales. Gestión
+3. Incertidumbre por aranceles de Trump al cobre
+Aunque el arancel del 50% al cobre se impuso en agosto de 2025, su efecto continuó siendo tema de debate en marzo de 2026. La proclamación de Trump establece que, a más tardar el 30 de junio de 2026, se debe presentar un nuevo informe sobre el mercado del cobre, con base en el cual el presidente podría imponer aranceles universales escalonados: un 15% a partir del 1 de enero de 2027 y un 30% desde enero de 2028. Esta incertidumbre afecta las decisiones de inversión. Infobae
+4. Falta de nuevos proyectos mineros grandes en ejecución
+Pese a que el cobre y el oro se cotizan en niveles nunca antes vistos, no ha habido un mayor repunte de las inversiones mineras que motive a ejecutar nuevos proyectos, como ocurrió en anteriores temporadas de boom en los precios de los metales. Salvo Tía María, no se está ejecutando ningún otro gran proyecto minero nuevo, sino básicamente ampliaciones de minas existentes. Mineriaenergia
+5. Conflictos sociales latentes y riesgo electoral
+Expertos advirtieron que el impacto económico de la conflictividad social podría ser más grave que los propios aranceles al cobre peruano. Además, alertaron sobre un posible aumento del discurso antiminero en el marco del proceso electoral de 2026. Rumbo Minero
+

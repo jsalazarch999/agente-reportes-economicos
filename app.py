@@ -1,12 +1,19 @@
 import streamlit as st
 from dotenv import load_dotenv
-from rag.context_enricher import enriquecer_contexto_rag
-from agent.orchestrator import obtener_periodos_excel, procesar_periodo_excel, generar_reporte_llm
-from evaluation.quality_scorer import evaluar_calidad
-from llm.generator import generar_comentario_causal
 from llm.clients import modelos_disponibles
+from agent.orchestrator import (
+    obtener_periodos_excel,
+    procesar_periodo_excel,
+    generar_reporte,
+)
+from evaluation.quality_scorer import evaluar_calidad
+from evaluation.grounding_checker import resumen_grounding
 
 load_dotenv()
+
+# =====================================================
+# CONFIGURACIÓN DE PÁGINA
+# =====================================================
 
 st.set_page_config(
     page_title="Agente de Reportes Económicos",
@@ -17,32 +24,28 @@ st.title("Agente de Reportes Económicos")
 
 MODELOS_DISPONIBLES = modelos_disponibles()
 
-# =========================
-# CONFIGURACIÓN DE SECTORES
-# =========================
-
 SECTORES_DISPONIBLES = {
     "Minería e Hidrocarburos": {
-        "habilitado": True,
+        "habilitado":  True,
         "descripcion": "Generación de reporte para el sector Minería e Hidrocarburos."
     },
     "Pesca": {
-        "habilitado": False,
+        "habilitado":  False,
         "descripcion": "Módulo pendiente de implementación."
     },
     "Manufactura": {
-        "habilitado": False,
+        "habilitado":  False,
         "descripcion": "Módulo pendiente de implementación."
     },
     "Agropecuario": {
-        "habilitado": False,
+        "habilitado":  False,
         "descripcion": "Módulo pendiente de implementación."
-    }
+    },
 }
 
-# =========================
+# =====================================================
 # SIDEBAR
-# =========================
+# =====================================================
 
 st.sidebar.header("Configuración")
 
@@ -56,22 +59,48 @@ modelo = st.sidebar.selectbox(
     MODELOS_DISPONIBLES
 )
 
-mostrar_debug = st.sidebar.checkbox(
-    "Mostrar contexto y datos",
-    value=True
+st.sidebar.divider()
+st.sidebar.subheader("RAG y fundamentación")
+
+usar_rag = st.sidebar.checkbox(
+    "Activar fundamentación coyuntural",
+    value=False,
+    help=(
+        "Recupera documentos del corpus local (FAISS) y genera "
+        "párrafos de fundamentación intercalados en el reporte."
+    )
 )
 
-usar_web_rag = st.sidebar.checkbox(
-    "Enriquecer con contexto local y fuentes web",
+usar_web = st.sidebar.checkbox(
+    "Incluir búsqueda web",
+    value=False,
+    disabled=not usar_rag,
+    help=(
+        "Complementa el corpus local con fuentes web verificadas. "
+        "Desactivar si los datos son confidenciales o pre-publicación."
+    )
+)
+
+if usar_rag and usar_web:
+    modelos_externos = {"openai", "anthropic", "gemini", "deepseek", "llama3"}
+    if modelo in modelos_externos:
+        st.sidebar.warning(
+            f"⚠️ El modelo '{modelo}' envía contexto a una API externa. "
+            "Asegúrate de que los datos ya son públicos antes de continuar."
+        )
+
+st.sidebar.divider()
+
+mostrar_debug = st.sidebar.checkbox(
+    "Mostrar contexto y datos",
     value=False
 )
 
-# =========================
+# =====================================================
 # VALIDAR SECTOR
-# =========================
+# =====================================================
 
 info_sector = SECTORES_DISPONIBLES[sector]
-
 st.subheader(sector)
 st.write(info_sector["descripcion"])
 
@@ -79,205 +108,265 @@ if not info_sector["habilitado"]:
     st.warning("Este sector aún no está implementado.")
     st.stop()
 
-# =========================
+# =====================================================
 # CARGA DE ARCHIVO
-# =========================
+# =====================================================
 
 archivo = st.file_uploader(
-    "Sube el Excel de variaciones",
-    type=["xlsx"]
+    "Sube el archivo de data estructurada",
+    type=["xlsx", "csv"],
 )
 
-if archivo:
-    try:
-        # Una sola lectura para obtener periodos
-        resultado = obtener_periodos_excel(archivo)
-        periodos = resultado["periodos"]
+if not archivo:
+    st.info("Sube un archivo Excel o CSV para iniciar.")
+    st.stop()
 
-        periodo = st.selectbox("Selecciona periodo", periodos)
+try:
+    resultado     = obtener_periodos_excel(archivo)
+    periodos      = resultado["periodos"]
+    advertencias_carga = resultado.get("advertencias", [])
 
-        # Procesar el periodo seleccionado
-        datos_periodo = procesar_periodo_excel(
-            archivo=archivo,
-            periodo=periodo,
-            sector=sector
+    if advertencias_carga:
+        for adv in advertencias_carga:
+            st.warning(f"⚠️ {adv}")
+
+    periodo = st.selectbox("Selecciona periodo", periodos)
+
+    datos_periodo = procesar_periodo_excel(
+        archivo=archivo,
+        periodo=periodo,
+        sector=sector,
+    )
+
+    if datos_periodo.get("advertencias"):
+        for adv in datos_periodo["advertencias"]:
+            st.warning(f"⚠️ {adv}")
+
+    # =====================================================
+    # TEXTO BASE DETERMINÍSTICO
+    # =====================================================
+
+    tipo_reporte = datos_periodo["contexto"].get("tipo_reporte")
+    st.info(f"Tipo de reporte detectado: **{tipo_reporte}**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Texto base determinístico")
+        tab1, tab2, tab3 = st.tabs(["Reporte 1", "Reporte 2", "Reporte 3"])
+
+        with tab1:
+            st.text_area(
+                "Reporte base 1",
+                datos_periodo["texto_base"]["reporte_1"],
+                height=500,
+            )
+        with tab2:
+            st.text_area(
+                "Reporte base 2",
+                datos_periodo["texto_base"]["reporte_2"],
+                height=500,
+            )
+        with tab3:
+            reporte_3 = datos_periodo["texto_base"]["reporte_3"]
+            if reporte_3:
+                st.text_area("Reporte base 3", reporte_3, height=500)
+            else:
+                st.info("No aplica para este periodo.")
+
+    # =====================================================
+    # GENERACIÓN CON LLM
+    # =====================================================
+
+    with col2:
+        st.subheader("Reporte generado con IA")
+
+        label_boton = (
+            "Generar reporte con fundamentación"
+            if usar_rag else
+            "Generar reporte estadístico"
         )
 
-        # =========================
-        # TEXTO BASE
-        # =========================
+        if st.button(label_boton, type="primary"):
+            with st.spinner("Generando reporte..."):
+                try:
+                    resultado_gen = generar_reporte(
+                        contexto=datos_periodo["contexto"],
+                        texto_base=datos_periodo["texto_base"],
+                        modelo=modelo,
+                        usar_rag=usar_rag,
+                        usar_web=usar_web,
+                    )
 
-        st.subheader("Texto base determinístico")
+                    st.session_state["reporte_final"]     = resultado_gen["reporte_final"]
+                    st.session_state["texto_estadistico"] = resultado_gen["texto_estadistico"]
+                    st.session_state["fundamentaciones"]  = resultado_gen["fundamentaciones"]
+                    st.session_state["contexto_final"]    = resultado_gen["contexto_final"]
+                    st.session_state["advertencias_rag"]  = resultado_gen["advertencias_rag"]
 
-        tipo_reporte = datos_periodo["contexto"].get("tipo_reporte")
-        st.info(f"Tipo de reporte detectado: {tipo_reporte}")
+                except Exception as e:
+                    st.error(f"Error al generar el reporte: {e}")
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("Reportes base determinísticos")
-
-            tab1, tab2, tab3 = st.tabs(["Reporte 1", "Reporte 2", "Reporte 3"])
-
-            with tab1:
-                st.text_area(
-                    "Reporte base 1",
-                    datos_periodo["texto_base"]["reporte_1"],
-                    height=500
-                )
-
-            with tab2:
-                st.text_area(
-                    "Reporte base 2",
-                    datos_periodo["texto_base"]["reporte_2"],
-                    height=500
-                )
-
-            with tab3:
-                reporte_3 = datos_periodo["texto_base"]["reporte_3"]
-                if reporte_3:
-                    st.text_area("Reporte base 3", reporte_3, height=500)
-                else:
-                    st.info("No aplica para este periodo")
-
-        with col2:
-            st.subheader("Texto mejorado con IA")
-
-            if st.button("Generar reporte con LLM"):
-                with st.spinner("Generando reporte..."):
-                    try:
-                        contexto_final = datos_periodo["contexto"].copy()
-
-                        if usar_web_rag:
-                            contexto_final = enriquecer_contexto_rag(
-                                contexto_final,
-                                max_fuentes=3
-                            )
-
-                        texto_llm = generar_reporte_llm(
-                            contexto=contexto_final,
-                            texto_base=datos_periodo["texto_base"],
-                            modelo=modelo
-                        )
-
-                        st.session_state["texto_llm"] = texto_llm
-                        st.session_state["contexto_final"] = contexto_final
-
-                    except Exception as e:
-                        st.error(f"Error al usar el LLM: {e}")
-
-            if "texto_llm" in st.session_state:
-                st.text_area(
-                    "Reporte generado por IA",
-                    st.session_state["texto_llm"],
-                    height=500
-                )
-
-        # =========================
-        # SECCIÓN POST-GENERACIÓN
-        # =========================
-
-        if "texto_llm" in st.session_state:
-            texto_llm = st.session_state["texto_llm"]
-            contexto_final = st.session_state["contexto_final"]
-
-            if usar_web_rag:
-                st.subheader("Comentario causal con RAG")
-
-                comentario_causal = generar_comentario_causal(
-                    contexto_final,
-                    modelo=modelo
-                )
-                st.text_area(
-                    "Comentario causal por subsector",
-                    comentario_causal,
-                    height=350
-                )
-
-                with st.expander("Contexto local curado consultado"):
-                    contexto_local = contexto_final.get("contexto_local", {})
-                    st.write(contexto_local.get(
-                        "resumen_para_llm",
-                        "No se encontró contexto local."
-                    ))
-
-                with st.expander("Fuentes web consultadas"):
-                    contexto_web = contexto_final.get("contexto_web", {})
-                    st.write("Consulta:", contexto_web.get("query", ""))
-                    for fuente in contexto_web.get("fuentes", []):
-                        st.markdown(f"- [{fuente.get('titulo')}]({fuente.get('url')})")
-
-            # Armar texto base completo para evaluación (ignorando reporte_3 si es None)
-            texto_base_completo = "\n\n".join(filter(None, [
-                datos_periodo["texto_base"]["reporte_1"],
-                datos_periodo["texto_base"]["reporte_2"],
-                datos_periodo["texto_base"]["reporte_3"],
-            ]))
-
-            contexto_eval = contexto_final.copy()
-            contexto_eval["texto_base"] = texto_base_completo
-
-            resultado_eval = evaluar_calidad(
-                texto_llm=texto_llm,
-                periodo=periodo,
-                contexto=contexto_eval
+        if "reporte_final" in st.session_state:
+            st.text_area(
+                "Reporte final",
+                st.session_state["reporte_final"],
+                height=600,
             )
 
-            # =========================
-            # EVALUACIÓN DE CALIDAD
-            # =========================
+    # =====================================================
+    # SECCIÓN POST-GENERACIÓN
+    # =====================================================
 
-            st.subheader("Evaluación de calidad")
+    if "reporte_final" not in st.session_state:
+        st.stop()
 
-            col_a, col_b, col_c, col_d = st.columns(4)
-            col_a.metric("Score total", resultado_eval["score_total"])
-            col_b.metric("Similitud", resultado_eval["similitud"])
-            col_c.metric("Cobertura productos", resultado_eval["cobertura_productos"])
-            col_d.metric("Válido", "Sí" if resultado_eval["valido"] else "No")
+    reporte_final     = st.session_state["reporte_final"]
+    texto_estadistico = st.session_state["texto_estadistico"]
+    fundamentaciones  = st.session_state["fundamentaciones"]
+    contexto_final    = st.session_state["contexto_final"]
+    advertencias_rag  = st.session_state["advertencias_rag"]
 
-            if resultado_eval["benchmark_usado"] != "No disponible":
-                with st.expander("Ver benchmark histórico"):
-                    with open(resultado_eval["benchmark_usado"], encoding="utf-8") as f:
-                        st.text_area("Benchmark histórico", f.read(), height=400)
+    # Advertencias del RAG
+    if advertencias_rag:
+        st.warning("Advertencias de fuentes web:")
+        for adv in advertencias_rag:
+            st.write(f"• {adv}")
 
-            if resultado_eval.get("errores_porcentajes"):
-                st.error("Alucinaciones numéricas detectadas:")
-                for e in resultado_eval["errores_porcentajes"]:
-                    st.write(f"• {e}")
+    # Fundamentaciones generadas (si las hay)
+    if fundamentaciones:
+        with st.expander("Ver fundamentaciones coyunturales generadas"):
+            for clave, texto in fundamentaciones.items():
+                nombre = clave.replace("__", " → ").replace("_", " ").title()
+                st.markdown(f"**{nombre}**")
+                st.write(texto)
+                st.divider()
 
-            if resultado_eval.get("advertencias_porcentajes"):
-                st.warning("Posibles redondeos:")
-                for a in resultado_eval["advertencias_porcentajes"]:
-                    st.write(f"• {a}")
+    # Fuentes consultadas
+    if usar_rag:
+        contexto_rag = contexto_final.get("contexto_rag", {})
 
-            if resultado_eval.get("errores"):
-                for e in resultado_eval["errores"]:
-                    st.error(e)
+        if contexto_rag:
+            with st.expander("Fuentes locales consultadas (corpus FAISS)"):
+                for clave, bloque in contexto_rag.items():
+                    docs_locales = bloque.get("local", [])
+                    if docs_locales:
+                        nombre = clave.replace("__", " → ").replace("_", " ").title()
+                        st.markdown(f"**{nombre}**")
+                        for doc in docs_locales:
+                            st.write(
+                                f"• {doc.get('archivo', '—')} "
+                                f"(score: {doc.get('_score_semantico', '—')})"
+                            )
 
-            if resultado_eval.get("advertencias"):
-                for a in resultado_eval["advertencias"]:
-                    st.warning(a)
+        if usar_web:
+            with st.expander("Fuentes web consultadas"):
+                for clave, bloque in contexto_rag.items():
+                    docs_web = bloque.get("web", [])
+                    if docs_web:
+                        nombre = clave.replace("__", " → ").replace("_", " ").title()
+                        st.markdown(f"**{nombre}**")
+                        for doc in docs_web:
+                            nivel = doc.get("nivel_confianza", "?")
+                            emoji = {1: "🟢", 2: "🟡", 3: "🟠", 4: "🔵"}.get(nivel, "⚪")
+                            st.markdown(
+                                f"• {emoji} [{doc.get('titulo', '—')}]"
+                                f"({doc.get('url', '#')})"
+                            )
 
-            with st.expander("Ver porcentajes comparados"):
-                col1, col2 = st.columns(2)
-                col1.write("Del contexto (Excel):")
-                col1.write(resultado_eval["porcentajes_contexto"])
-                col2.write("Del texto generado:")
-                col2.write(resultado_eval["porcentajes_texto"])
+    # =====================================================
+    # EVALUACIÓN DE CALIDAD
+    # =====================================================
 
-        # =========================
-        # DEBUG
-        # =========================
+    st.subheader("Evaluación de calidad")
 
-        if mostrar_debug:
-            with st.expander("Ver contexto estructurado para LLM"):
-                st.json(datos_periodo["contexto"])
+    contexto_rag_eval = contexto_final.get("contexto_rag") if usar_rag else None
 
-            with st.expander("Ver datos del periodo seleccionado"):
-                st.dataframe(datos_periodo["df_periodo"])
+    resultado_eval = evaluar_calidad(
+        texto_llm=texto_estadistico,
+        periodo=periodo,
+        contexto=contexto_final,
+        fundamentaciones=fundamentaciones if usar_rag else None,
+        contexto_rag=contexto_rag_eval,
+    )
 
-    except Exception as e:
-        st.error(f"Error al procesar el archivo: {e}")
+    # Métricas principales
+    n_cols = 5 if usar_rag else 4
+    cols = st.columns(n_cols)
+    cols[0].metric("Score total",        resultado_eval["score_total"])
+    cols[1].metric("Similitud",          resultado_eval["similitud"])
+    cols[2].metric("Cobertura",          resultado_eval["cobertura_productos"])
+    cols[3].metric("Válido",             "Sí" if resultado_eval["valido"] else "No")
+    if usar_rag and n_cols == 5:
+        score_g = resultado_eval.get("score_grounding")
+        cols[4].metric(
+            "Grounding RAG",
+            f"{score_g:.2f}" if score_g is not None else "N/A"
+        )
 
-else:
-    st.info("Sube un archivo Excel para iniciar.")
+    # Benchmark histórico
+    if resultado_eval["benchmark_usado"] != "No disponible":
+        with st.expander("Ver benchmark histórico"):
+            with open(resultado_eval["benchmark_usado"], encoding="utf-8") as f:
+                st.text_area("Benchmark histórico", f.read(), height=400)
+
+    # Errores y advertencias de porcentajes
+    if resultado_eval.get("errores_porcentajes"):
+        st.error("Alucinaciones numéricas detectadas:")
+        for e in resultado_eval["errores_porcentajes"]:
+            st.write(f"• {e}")
+
+    if resultado_eval.get("advertencias_porcentajes"):
+        st.warning("Posibles redondeos:")
+        for a in resultado_eval["advertencias_porcentajes"]:
+            st.write(f"• {a}")
+
+    if resultado_eval.get("errores"):
+        for e in resultado_eval["errores"]:
+            st.error(e)
+
+    if resultado_eval.get("advertencias"):
+        for a in resultado_eval["advertencias"]:
+            st.warning(a)
+
+    # Grounding por fundamentación
+    if usar_rag and resultado_eval.get("detalle_grounding"):
+        with st.expander("Diagnóstico de grounding por fundamentación"):
+            lineas = resumen_grounding(resultado_eval["detalle_grounding"])
+            for linea in lineas:
+                st.write(linea)
+
+            if resultado_eval.get("advertencias_grounding"):
+                st.divider()
+                for adv in resultado_eval["advertencias_grounding"]:
+                    st.warning(adv)
+
+    # Porcentajes comparados
+    with st.expander("Ver porcentajes comparados"):
+        c1, c2 = st.columns(2)
+        c1.write("Del contexto (datos):")
+        c1.write(resultado_eval["porcentajes_contexto"])
+        c2.write("Del texto generado:")
+        c2.write(resultado_eval["porcentajes_texto"])
+
+    # =====================================================
+    # DEBUG
+    # =====================================================
+
+    if mostrar_debug:
+        with st.expander("Ver contexto estructurado para LLM"):
+            st.json(datos_periodo["contexto"])
+
+        with st.expander("Ver datos del periodo seleccionado"):
+            st.dataframe(datos_periodo["df_periodo"])
+
+        if usar_rag and contexto_final.get("contexto_rag"):
+            with st.expander("Ver contexto RAG ensamblado"):
+                for clave, bloque in contexto_final["contexto_rag"].items():
+                    st.markdown(f"**{clave}**")
+                    st.write(bloque.get("resumen", "")[:300] + "...")
+
+except Exception as e:
+    st.error(f"Error al procesar los datos: {e}")
+    if mostrar_debug:
+        st.exception(e)

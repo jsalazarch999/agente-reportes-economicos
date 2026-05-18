@@ -1,0 +1,13 @@
+---
+sector: mineria_hidrocarburos
+periodo: 202512
+tipo: institucional
+fuente: minem
+---
+El Ministerio de Energía y Minas publicó en diciembre de 2025 el balance 
+preliminar del sector para el cuarto trimestre. El documento destacó que 
+la minería metálica mantuvo niveles de producción sostenidos durante el año, 
+con el cobre como principal contribuyente al valor exportado. El subsector 
+hidrocarburos registró una contracción acumulada explicada principalmente 
+por el declive natural de yacimientos maduros y trabajos de mantenimiento 
+ejecutados en el segundo semestre.

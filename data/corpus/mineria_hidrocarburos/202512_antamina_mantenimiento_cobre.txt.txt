@@ -1,0 +1,15 @@
+---
+sector: mineria_hidrocarburos
+subsector: mineria_metalica
+producto: cobre
+empresa: Antamina
+periodo: 202512
+tipo: coyuntural
+fuente: propia
+---
+En diciembre de 2025, Compañía Minera Antamina realizó trabajos de 
+mantenimiento mayor en su planta concentradora, reduciendo su capacidad 
+operativa aproximadamente un 30% durante las dos primeras semanas del mes. 
+El mantenimiento fue programado y comunicado al MINEM con anticipación. 
+La producción de cobre del mes se vio afectada a la baja como consecuencia 
+directa de esta paralización parcial.

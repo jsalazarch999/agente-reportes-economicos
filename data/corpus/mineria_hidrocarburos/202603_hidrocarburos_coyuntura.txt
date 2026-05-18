@@ -1,0 +1,26 @@
+---
+sector: mineria_hidrocarburos
+subsector: hidrocarburos
+periodo: 202603
+tipo: coyuntural
+fuente: propia
+---
+
+🔴 Impacto NEGATIVO — El evento más crítico: Explosión en el ducto de TGP (Camisea)
+El 1 de marzo de 2026 se produjo la rotura y deflagración en el sistema de transporte de TGP (Transportadora de Gas del Perú), tanto en su ducto de gas natural como el de líquidos de gas, en el kilómetro 43, situado en el distrito de Megantoni, en la selva cusqueña. Transcurrieron 14 días hasta que TGP logró sofocar la deflagración y volver a poner en servicio el transporte de gas y líquidos. Gestión
+Las consecuencias inmediatas fueron graves: el siniestro redujo drásticamente el suministro de gas natural y paralizó el transporte de líquidos de gas natural (LGN), insumo fundamental para producir GLP, combustible esencial para los balones de cocina y millones de conductores. La República
+El Ministerio de Energía y Minas declaró el Estado de Emergencia y estableció un mecanismo de racionamiento que priorizó el suministro solo para hogares, comercios y transporte público masivo. RPP Noticias
+Este siniestro también tuvo consecuencias de largo plazo: la adenda para la extensión del ducto de TGP al sur (US$ 2.000 millones), que debía firmarse en el primer trimestre de 2026, quedó postergada y aún no cuenta con una nueva fecha oficial de adjudicación. Infobae
+
+🔴 Impacto NEGATIVO — Caída estructural de la producción petrolera
+La producción de petróleo en Perú alcanzó un promedio de 37.45 miles de barriles por día (MBPD) durante el primer trimestre de 2026, registrando una caída de 19,9% respecto al mismo período de 2025, cuando la producción fue de 46.80 MBPD. El Comercio
+En marzo de 2026 se observó una ligera recuperación, con una producción de 38.94 MBPD, aunque la tendencia a la baja también se replicó en el gas natural: la producción promedio del primer trimestre fue de 1.148 millones de pies cúbicos por día (MMCFD), una caída de 10,2% frente al mismo periodo de 2025. Buena Pepa
+
+🔴 Impacto NEGATIVO — Postergación del Lote 192
+El BCRP revisó a la baja el crecimiento esperado para 2026 del sector hidrocarburos, de 4.9% a -4.7%, principalmente por la postergación hacia 2027 del inicio de operaciones del Lote 192, que estaba contemplada para mediados de 2026. A ello se sumó la menor producción esperada del Lote 95 y la menor producción de líquidos y gas natural tras el siniestro de marzo en el sistema de TGP. Gestión
+
+🔴 Impacto NEGATIVO — Crisis de inversión exploratoria
+En febrero de 2026, expertos advirtieron que la inversión en exploración de petróleo y gas "se hunde" y que no se ha perforado un solo pozo exploratorio. Esto fue atribuido principalmente a vacíos en la política pública y en el diseño de incentivos regulatorios, así como a la falta de condiciones de comerciabilidad definidas por el Estado. Gerens
+
+🟡 Dato de contexto — Ingresos de marzo fueron los más altos del trimestre
+Pese a la crisis, en marzo de 2026 los ingresos por producción de hidrocarburos alcanzaron los US$ 89,5 millones, siendo el gas natural el que lideró la recaudación mensual con US$ 41,3 millones, seguido por el petróleo con US$ 25,5 millones y los líquidos de gas natural con US$ 22,7 millones. Esto se explica en parte por los precios internacionales elevados. Infobae

@@ -1,0 +1,14 @@
+---
+sector: mineria_hidrocarburos
+subsector: hidrocarburos
+producto: gas_natural
+empresa: TGP
+periodo: 202512
+tipo: coyuntural
+fuente: perupetro
+---
+En diciembre de 2025, Transportadora de Gas del Perú ejecutó trabajos de 
+mantenimiento en el Sistema de Transporte por Ductos del lote 88 de Camisea, 
+lo que implicó restricciones temporales en el flujo de gas natural durante 
+aproximadamente cinco días. El volumen transportado del mes presentó una 
+reducción respecto al mes anterior.

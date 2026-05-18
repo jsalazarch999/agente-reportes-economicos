@@ -10,6 +10,17 @@ PALABRAS_PROHIBIDAS_DEFAULT = [
     "precios",
     "mercado internacional",
     "tercer trimestre",
+    # Frases genéricas inventadas por el LLM — no permitidas
+    "condiciones operativas y eventos específicos",
+    "en condiciones normales",
+    "sin reportes de mantenimientos",
+    "sin reportes de incidentes",
+    "eventos específicos que afectaron",
+    "contexto operativo favorable",
+    "precios internacionales",
+    "incertidumbre política",
+    "confianza de los inversionistas",
+    "elecciones presidenciales",
 ]
 
 SECCIONES_OBLIGATORIAS_DEFAULT = [
